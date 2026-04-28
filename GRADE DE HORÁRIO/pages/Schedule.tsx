@@ -292,20 +292,13 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
             background-color: white !important;
           }
 
-          /* Hide app UI */
-          body > * { visibility: hidden; }
-          #root { height: 0 !important; overflow: hidden !important; }
-
           /* Print area setup */
           #printable-area {
             visibility: visible !important;
             display: block !important;
-            position: absolute !important;
-            top: 0; left: 0; width: 100%;
+            width: 100%;
             background: white;
-            z-index: 9999;
           }
-          #printable-area * { visibility: visible !important; }
 
           /* FORCE FONT SIZE ON ALL TABLE ELEMENTS */
           .print-table, .print-table td, .print-table th {
@@ -349,7 +342,7 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
       `}</style>
 
       {/* HEADER & CONTROLS */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 no-print">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Grade Horária</h2>
           <p className="text-gray-500 text-sm">Gerencie suas aulas da Manhã e Tarde.</p>
@@ -369,7 +362,7 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
 
       {/* VIEWS */}
       {viewMode === 'daily' && (
-        <div className="space-y-4 no-print">
+        <div className="space-y-4 print:hidden">
             <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide bg-white p-2 rounded-xl border border-gray-200">
                 {DAYS.map(day => (
                 <button key={day} onClick={() => setSelectedDay(day)} className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedDay === day ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>{day}</button>
@@ -389,7 +382,7 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
       )}
 
       {viewMode === 'weekly' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden no-print">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden print:hidden">
             <div className="overflow-x-auto">
                 <table className="w-full min-w-[800px] border-collapse">
                     <thead>
@@ -421,7 +414,7 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
 
       {/* PRINT CONFIG MODAL */}
       {isPrintModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm no-print">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm print:hidden">
              <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
                  <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                     <div className="flex items-center gap-2"><Printer className="text-blue-600" /><h3 className="text-lg font-bold">Configurações de Impressão</h3></div>
@@ -474,7 +467,7 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
 
       {/* Manual Modal (Add/Edit) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm no-print">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm print:hidden">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
                 <div className="flex justify-between items-start mb-4">
                     <div><h3 className="text-lg font-bold text-gray-800">{editingSlotIndex !== null ? `Editar ${editingSlotIndex + 1}º Horário` : 'Nova Aula'}</h3><p className="text-sm text-gray-500">{editingDay} - {editingShift}</p></div>
@@ -491,7 +484,7 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
 
       {/* CLEAR MODAL */}
       {isClearModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm no-print">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm print:hidden">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
                 <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4"><Eraser className="text-red-600" size={24} /></div>
                 <h3 className="text-lg font-bold text-gray-800 mb-2">Limpar Grade</h3>
@@ -508,7 +501,7 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
 
       {/* AUTO MODAL */}
       {isAutoOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm no-print">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm print:hidden">
              <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center"><h3 className="text-xl font-bold">Gerador Automático (Passo {autoStep}/3)</h3><button onClick={() => setIsAutoOpen(false)}><X /></button></div>
                 <div className="p-6 overflow-y-auto flex-1">
