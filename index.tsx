@@ -4,7 +4,7 @@ import {
   BookOpen, ChevronLeft, Calendar as CalendarIcon, FileText, CheckCircle, 
   PenTool, GraduationCap, Share2, BarChart3, Layout, Clock, 
   AlertCircle, ChevronRight, Calculator, Shapes, ListChecks, Printer, Eye,
-  Download, FileSpreadsheet, School, MapPin
+  Download, FileSpreadsheet, School, MapPin, ClipboardCheck, AlertTriangle
 } from 'lucide-react';
 
 import { Item, Unit, Grade } from './types';
@@ -685,6 +685,208 @@ const UnitList = ({ grade, onSelectUnit }: { grade: Grade, onSelectUnit: (u: Uni
   </div>
 );
 
+// ==================== CHECKLIST SYSTEM ====================
+type ChecklistData = Record<string, Record<string, boolean>>; // gradeId_unitId -> { itemId: true/false }
+type PendingItems = Record<string, string[]>; // gradeId_unitId -> [itemId, ...] (items carried over)
+
+const CHECKLIST_KEY = 'profmat_checklist';
+const PENDING_KEY = 'profmat_pending';
+const CONFIRMED_KEY = 'profmat_confirmed';
+
+const loadChecklist = (): ChecklistData => {
+  try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '{}'); } catch { return {}; }
+};
+const saveChecklist = (d: ChecklistData) => localStorage.setItem(CHECKLIST_KEY, JSON.stringify(d));
+const loadPending = (): PendingItems => {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '{}'); } catch { return {}; }
+};
+const savePending = (d: PendingItems) => localStorage.setItem(PENDING_KEY, JSON.stringify(d));
+const loadConfirmed = (): Record<string, boolean> => {
+  try { return JSON.parse(localStorage.getItem(CONFIRMED_KEY) || '{}'); } catch { return {}; }
+};
+const saveConfirmed = (d: Record<string, boolean>) => localStorage.setItem(CONFIRMED_KEY, JSON.stringify(d));
+
+const ChecklistView = ({ unit, grade }: { unit: Unit, grade: Grade }) => {
+  const unitKey = `${grade.id}_${unit.id}`;
+  const [checklist, setChecklist] = useState<ChecklistData>(loadChecklist);
+  const [pending, setPending] = useState<PendingItems>(loadPending);
+  const [confirmed, setConfirmed] = useState<Record<string, boolean>>(loadConfirmed);
+  const [showReport, setShowReport] = useState(false);
+
+  const isConfirmed = confirmed[unitKey] || false;
+  const unitChecks = checklist[unitKey] || {};
+  const pendingForUnit = pending[unitKey] || [];
+
+  // Find items carried over from previous unit
+  const unitIdx = grade.units.findIndex(u => u.id === unit.id);
+  const isLastUnit = unitIdx === grade.units.length - 1;
+
+  // Get previous unit's pending items that were carried to this unit
+  const carriedItems: { id: string; title: string; skill?: string; fromUnit: string }[] = [];
+  if (pendingForUnit.length > 0) {
+    // These are item IDs from previous units
+    for (const prevUnit of grade.units.slice(0, unitIdx)) {
+      for (const item of prevUnit.items) {
+        if (pendingForUnit.includes(item.id)) {
+          carriedItems.push({ id: item.id, title: item.title, skill: item.skill, fromUnit: prevUnit.title });
+        }
+      }
+    }
+  }
+
+  const allItems = [...unit.items.map(i => ({ ...i, fromUnit: '' })), ...carriedItems.map(c => ({ ...c, type: 'lesson' as const }))];
+
+  const toggleItem = (itemId: string) => {
+    if (isConfirmed) return;
+    const updated = { ...checklist, [unitKey]: { ...unitChecks, [itemId]: !unitChecks[itemId] } };
+    setChecklist(updated);
+    saveChecklist(updated);
+  };
+
+  const confirmUnit = () => {
+    if (!confirm('Confirmar esta unidade? Os itens não marcados serão movidos para a próxima unidade (ou gerar relatório se for a última).')) return;
+    
+    // Find unchecked items
+    const uncheckedIds = allItems.filter(i => !unitChecks[i.id]).map(i => i.id);
+
+    if (isLastUnit) {
+      // Show report
+      setShowReport(true);
+    } else {
+      // Move to next unit
+      const nextUnit = grade.units[unitIdx + 1];
+      const nextKey = `${grade.id}_${nextUnit.id}`;
+      const existingPending = pending[nextKey] || [];
+      const updatedPending = { ...pending, [nextKey]: [...existingPending, ...uncheckedIds] };
+      setPending(updatedPending);
+      savePending(updatedPending);
+    }
+
+    const updatedConfirmed = { ...confirmed, [unitKey]: true };
+    setConfirmed(updatedConfirmed);
+    saveConfirmed(updatedConfirmed);
+  };
+
+  const resetUnit = () => {
+    if (!confirm('Resetar o checklist desta unidade?')) return;
+    const updatedChecklist = { ...checklist };
+    delete updatedChecklist[unitKey];
+    setChecklist(updatedChecklist);
+    saveChecklist(updatedChecklist);
+    const updatedConfirmed = { ...confirmed };
+    delete updatedConfirmed[unitKey];
+    setConfirmed(updatedConfirmed);
+    saveConfirmed(updatedConfirmed);
+    setShowReport(false);
+  };
+
+  const checkedCount = allItems.filter(i => unitChecks[i.id]).length;
+  const totalCount = allItems.length;
+  const progress = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
+
+  // Report for last unit
+  const uncheckedItems = allItems.filter(i => !unitChecks[i.id]);
+  const uncheckedSkills = [...new Set(uncheckedItems.map(i => i.skill).filter(Boolean))];
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto space-y-4 print:hidden">
+      {/* Progress Bar */}
+      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-bold text-gray-700">Progresso: {checkedCount}/{totalCount}</span>
+          <span className={`text-sm font-bold ${progress === 100 ? 'text-green-600' : 'text-indigo-600'}`}>{progress}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-3">
+          <div className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      {/* Carried items notice */}
+      {carriedItems.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex items-start gap-2">
+          <AlertTriangle size={18} className="text-amber-600 mt-0.5 shrink-0" />
+          <div className="text-sm text-amber-800">
+            <strong>{carriedItems.length} item(ns)</strong> foram transferidos de unidades anteriores por não terem sido dados.
+          </div>
+        </div>
+      )}
+
+      {/* Items */}
+      {allItems.map(item => (
+        <button
+          key={item.id}
+          onClick={() => toggleItem(item.id)}
+          disabled={isConfirmed}
+          className={`w-full flex items-center gap-3 p-3 rounded-lg border transition text-left ${
+            unitChecks[item.id] 
+              ? 'bg-green-50 border-green-300 line-through text-gray-400' 
+              : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-800'
+          } ${isConfirmed ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+        >
+          <div className={`w-6 h-6 rounded border-2 flex items-center justify-center shrink-0 ${
+            unitChecks[item.id] ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'
+          }`}>
+            {unitChecks[item.id] && <CheckCircle size={16} />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm truncate">{item.title}</div>
+            <div className="flex items-center gap-2 mt-0.5">
+              {item.skill && <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">{item.skill}</span>}
+              {item.fromUnit && <span className="text-xs bg-amber-100 px-1.5 py-0.5 rounded text-amber-700">← {item.fromUnit}</span>}
+            </div>
+          </div>
+        </button>
+      ))}
+
+      {/* Actions */}
+      <div className="flex gap-3 mt-6">
+        {!isConfirmed ? (
+          <button onClick={confirmUnit} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+            <ClipboardCheck size={20} /> Confirmar Unidade
+          </button>
+        ) : (
+          <div className="flex-1 py-3 bg-green-100 text-green-700 font-bold rounded-xl text-center flex items-center justify-center gap-2">
+            <CheckCircle size={20} /> Unidade Confirmada
+          </div>
+        )}
+        <button onClick={resetUnit} className="px-4 py-3 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 transition text-sm">Resetar</button>
+      </div>
+
+      {/* Report Modal */}
+      {showReport && uncheckedItems.length > 0 && (
+        <div className="bg-red-50 border border-red-200 p-6 rounded-xl mt-4">
+          <h3 className="text-lg font-bold text-red-800 flex items-center gap-2 mb-3"><AlertTriangle size={20} /> Relatório de Conteúdos Não Ministrados</h3>
+          <p className="text-sm text-red-700 mb-4">Os seguintes itens/aulas <strong>não foram ministrados</strong> ao longo do ano:</p>
+          <ul className="space-y-2 mb-4">
+            {uncheckedItems.map(item => (
+              <li key={item.id} className="text-sm text-red-800 bg-white p-2 rounded border border-red-100 flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0 text-red-500" />
+                <span className="font-medium">{item.title}</span>
+                {item.skill && <span className="text-xs bg-red-100 px-1.5 py-0.5 rounded">{item.skill}</span>}
+              </li>
+            ))}
+          </ul>
+          {uncheckedSkills.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-red-200">
+              <h4 className="text-sm font-bold text-red-800 mb-2">Habilidades BNCC não contempladas:</h4>
+              <div className="flex flex-wrap gap-2">
+                {uncheckedSkills.map(s => <span key={s} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">{s}</span>)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {showReport && uncheckedItems.length === 0 && (
+        <div className="bg-green-50 border border-green-200 p-6 rounded-xl mt-4 text-center">
+          <CheckCircle size={40} className="text-green-600 mx-auto mb-2" />
+          <h3 className="text-lg font-bold text-green-800">Parabéns! 🎉</h3>
+          <p className="text-sm text-green-700 mt-1">Todos os conteúdos foram ministrados com sucesso!</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ItemList = ({ unit, onSelectItem }: { unit: Unit, onSelectItem: (i: Item) => void }) => (
   <div className="p-4 max-w-4xl mx-auto space-y-3 print:hidden">
     {unit.items.map((item, idx) => {
@@ -724,7 +926,7 @@ const App = () => {
   const [gradeId, setGradeId] = useState<string | null>(null);
   const [unitId, setUnitId] = useState<string | null>(null);
   const [itemId, setItemId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'content' | 'overview' | 'calendar'>('content');
+  const [tab, setTab] = useState<'content' | 'overview' | 'calendar' | 'checklist'>('content');
   const [schoolId, setSchoolId] = useState<SchoolId>('igarassu');
   const school = SCHOOLS[schoolId];
 
@@ -914,11 +1116,13 @@ const App = () => {
         <div className="bg-white shadow-sm border-b border-gray-200 sticky top-16 z-10 print:hidden">
           <div className="max-w-4xl mx-auto flex">
             <button onClick={() => setTab('content')} className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${tab === 'content' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Conteúdo</button>
+            <button onClick={() => setTab('checklist')} className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${tab === 'checklist' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>✅ Checklist</button>
             <button onClick={() => setTab('overview')} className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${tab === 'overview' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Visão Geral</button>
-            <button onClick={() => setTab('calendar')} className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${tab === 'calendar' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Calendário 2026</button>
+            <button onClick={() => setTab('calendar')} className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${tab === 'calendar' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Calendário</button>
           </div>
         </div>
         {tab === 'content' && <ItemList unit={unit} onSelectItem={(i) => setItemId(i.id)} />}
+        {tab === 'checklist' && <ChecklistView unit={unit} grade={grade} />}
         {tab === 'overview' && <UnitOverview unit={unit} />}
         {tab === 'calendar' && <Calendar2026 currentUnitId={unit.id} grade={grade} />}
       </div>
