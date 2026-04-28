@@ -56,7 +56,7 @@ export const unit4: Unit = {
          { question: 'Uma aula começou $07h30$ e durou $50$ minutos. Que horas terminou?', answer: '$08h20$.', spaceForWork: true },
          { question: 'Converta $2500 g$ em $kg$.', answer: '$2,5 kg$.', spaceForWork: true },
          { question: 'Quantos $mL$ há em $3,2 L$?', answer: '$3200 mL$.', spaceForWork: true },
-         { question: 'Um terreno retangular tem $15m$ por $8m$. Qual o perímetro da cerca necessária?', answer: '$46 m$.', spaceForWork: true },
+         { question: 'Um terreno retangular tem $15m$ por $8m$. Qual o perímetro da cerca necessária?', answer: '$46 m$.', spaceForWork: true, imageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='110' viewBox='0 0 180 110'%3E%3Crect x='10' y='10' width='160' height='80' fill='%23dbeafe' stroke='%232563eb' stroke-width='2' stroke-dasharray='6,3'/%3E%3Ctext x='90' y='100' font-size='12' fill='%231e40af' font-family='Arial' text-anchor='middle'%3E15m%3C/text%3E%3Ctext x='177' y='55' font-size='12' fill='%231e40af' font-family='Arial' text-anchor='end'%3E8m%3C/text%3E%3C/svg%3E" },
          { question: 'Converta $3$ horas em minutos.', answer: '$180$ minutos.', spaceForWork: true },
          { question: 'Uma piscina tem $2m$ de comprimento, $1,5m$ de largura e $0,5m$ de profundidade. Qual a área do fundo?', answer: '$3 m^2$.', spaceForWork: true },
          { question: 'Se em um mapa (escala 1:200) uma parede mede $3cm$, qual o tamanho real?', answer: '$600 cm = 6 m$.', spaceForWork: true }
@@ -81,11 +81,11 @@ export const unit4: Unit = {
        id: 'exam4', type: 'exam', title: 'Prova da Unidade IV', skill: 'Geral', 
        questions: [
          { question: 'Converta $1200 mL$ para Litros.', answer: '$1,2 L$.', spaceForWork: true },
-         { question: 'Um terreno tem $10m$ de largura e $25m$ de comprimento. Qual a área?', answer: '$250 m^2$.', spaceForWork: true },
+         { question: 'Um terreno tem $10m$ de largura e $25m$ de comprimento. Qual a área?', answer: '$250 m^2$.', spaceForWork: true, imageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='100' viewBox='0 0 180 100'%3E%3Crect x='10' y='10' width='160' height='70' fill='%23d1fae5' stroke='%23059669' stroke-width='2'/%3E%3Ctext x='90' y='90' font-size='11' fill='%23065f46' font-family='Arial' text-anchor='middle'%3E25m%3C/text%3E%3Ctext x='5' y='50' font-size='11' fill='%23065f46' font-family='Arial' writing-mode='tb'%3E10m%3C/text%3E%3Ctext x='90' y='52' font-size='13' fill='%23065f46' font-family='Arial' text-anchor='middle' font-weight='bold'%3EÁrea%3D?%3C/text%3E%3C/svg%3E" },
          { question: 'Um carro andou $2h15min$ e parou. Depois andou mais $1h50min$. Qual o tempo total de viagem?', answer: '$4h05min$.', spaceForWork: true },
          { question: 'Se em um mapa (escala 1:1000) a distância é $5cm$, qual a real?', answer: '$5000 cm = 50 m$.', spaceForWork: true },
          { question: 'Lançando um dado, qual a probabilidade de sair um número ímpar?', answer: '$3/6$ ou $1/2$ ($50\\%$).', spaceForWork: true },
-         { question: 'Qual o perímetro de um triângulo equilátero de lado $6cm$?', answer: '$18 cm$.', spaceForWork: true },
+         { question: 'Qual o perímetro de um triângulo equilátero de lado $6cm$?', answer: '$18 cm$.', spaceForWork: true, imageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='130' viewBox='0 0 140 130'%3E%3Cpolygon points='70,10 15,115 125,115' fill='%23fef3c7' stroke='%23d97706' stroke-width='2'/%3E%3Ctext x='70' y='125' font-size='12' fill='%2392400e' font-family='Arial' text-anchor='middle'%3E6cm%3C/text%3E%3Ctext x='35' y='65' font-size='12' fill='%2392400e' font-family='Arial' transform='rotate(-60,35,65)'%3E6cm%3C/text%3E%3Ctext x='105' y='65' font-size='12' fill='%2392400e' font-family='Arial' transform='rotate(60,105,65)'%3E6cm%3C/text%3E%3C/svg%3E" },
          { question: 'Quantos gramas existem em $3,5 kg$?', answer: '$3500 g$.', spaceForWork: true },
          { question: 'Um gráfico mostra 40 alunos. $25\\%$ tem olhos azuis. Quantos são?', answer: '$10$ alunos.', spaceForWork: true },
          { question: 'Desenhe um retângulo e escreva a fórmula para calcular sua área.', answer: 'Área = Base $\\times$ Altura.', spaceForWork: true },

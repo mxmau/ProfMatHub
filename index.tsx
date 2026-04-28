@@ -898,7 +898,8 @@ const App = () => {
 
   if (!unit) {
     return (
-      <div className="min-h-screen bg-slate-50 pb-8 print:bg-white">
+      <div className="min-h-screen bg-slate-50 pb-8 print:bg-white relative">
+        <button onClick={() => { setActiveModule('hub'); setGradeId(null); setUnitId(null); setItemId(null); }} className="fixed top-2 left-2 z-50 flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg shadow-lg hover:bg-indigo-700 transition-all print:hidden"><ChevronLeft size={14} />Hub</button>
         <Header title={grade.title} subtitle="Selecione a Unidade" onBack={() => setGradeId(null)} />
         <UnitList grade={grade} onSelectUnit={(u) => setUnitId(u.id)} />
       </div>
@@ -907,7 +908,8 @@ const App = () => {
 
   if (!item) {
     return (
-      <div className="min-h-screen bg-slate-50 pb-8 print:bg-white">
+      <div className="min-h-screen bg-slate-50 pb-8 print:bg-white relative">
+        <button onClick={() => { setActiveModule('hub'); setGradeId(null); setUnitId(null); setItemId(null); }} className="fixed top-2 left-2 z-50 flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg shadow-lg hover:bg-indigo-700 transition-all print:hidden"><ChevronLeft size={14} />Hub</button>
         <Header title={unit.title} subtitle={grade.title} onBack={() => setUnitId(null)} />
         <div className="bg-white shadow-sm border-b border-gray-200 sticky top-16 z-10 print:hidden">
           <div className="max-w-4xl mx-auto flex">
@@ -924,7 +926,8 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-8 print:bg-white print:p-0 print:min-h-0">
+    <div className="min-h-screen bg-slate-50 pb-8 print:bg-white print:p-0 print:min-h-0 relative">
+      <button onClick={() => { setActiveModule('hub'); setGradeId(null); setUnitId(null); setItemId(null); }} className="fixed top-2 left-2 z-50 flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg shadow-lg hover:bg-indigo-700 transition-all print:hidden"><ChevronLeft size={14} />Hub</button>
       <Header 
         title={item.type === 'lesson' || item.type === 'practical' ? 'Nota de Aula' : 'Avaliação'} 
         subtitle={`${unit.title} > ${item.title}`} 
