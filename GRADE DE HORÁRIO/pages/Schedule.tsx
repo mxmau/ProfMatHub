@@ -5,8 +5,10 @@ import { addMinutes, TIMES_AFTERNOON, TIMES_MORNING } from '../services/storage'
 import { Button } from '../components/ui/Button';
 import { 
   Trash2, Plus, Wand2, X, 
-  LayoutGrid, CalendarDays, Clock, Printer, Eraser, Type, Minus, Plus as PlusIcon, Save, Smartphone 
+  LayoutGrid, CalendarDays, Clock, Printer, Eraser, Type, Minus, Plus as PlusIcon, Save, Smartphone, Download 
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface ScheduleProps {
   data: AppData;
@@ -190,6 +192,50 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
       // Fallback for browsers that don't fire afterprint
       setTimeout(restore, 5000);
     }, 100);
+  };
+
+  const downloadPDF = async () => {
+    const printArea = document.getElementById('printable-area');
+    if (!printArea) return;
+    setIsPrintModalOpen(false);
+
+    // Temporarily make printable-area visible for html2canvas
+    const origStyle = printArea.getAttribute('style') || '';
+    printArea.setAttribute('style', 'position:static;width:auto;height:auto;overflow:visible;background:white;padding:16px;');
+
+    try {
+      const canvas = await html2canvas(printArea, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      const isLandscape = printConfig.orientation === 'landscape';
+      const pdf = new jsPDF({
+        orientation: isLandscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageW = pdf.internal.pageSize.getWidth() - 20;
+      const pageH = pdf.internal.pageSize.getHeight() - 20;
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+      const ratio = Math.min(pageW / imgW, pageH / imgH);
+      const finalW = imgW * ratio;
+      const finalH = imgH * ratio;
+      const offsetX = (pdf.internal.pageSize.getWidth() - finalW) / 2;
+      const offsetY = 10;
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, offsetY, finalW, finalH);
+      pdf.save('Grade_Horaria.pdf');
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Erro ao gerar PDF. Tente novamente.');
+    } finally {
+      printArea.setAttribute('style', origStyle);
+    }
   };
 
   const openModal = (day: DayOfWeek, shift: Shift, index: number, existingSlot?: ScheduleSlot) => {
@@ -567,7 +613,10 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
                  </div>
                  <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
                     <Button variant="secondary" onClick={() => setIsPrintModalOpen(false)}>Cancelar</Button>
-                    <Button onClick={triggerPrint} className="px-8"><Printer size={18} className="mr-2"/> Imprimir Agora</Button>
+                    <div className="flex gap-3">
+                      <Button onClick={triggerPrint} className="px-6 flex-1" variant="secondary"><Printer size={18} className="mr-2"/> Imprimir</Button>
+                      <Button onClick={downloadPDF} className="px-6 flex-1"><Download size={18} className="mr-2"/> Baixar PDF</Button>
+                    </div>
                  </div>
              </div>
         </div>
