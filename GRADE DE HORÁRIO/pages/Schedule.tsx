@@ -111,93 +111,85 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
   const triggerPrint = () => {
     const printArea = document.getElementById('printable-area');
     if (!printArea) return;
+    setIsPrintModalOpen(false);
 
-    // Build color CSS for all Tailwind bg-* classes used
+    // Color definitions for Tailwind classes
     const colorCSS = `
-      .bg-red-500 { background-color: #ef4444 !important; }
-      .bg-orange-500 { background-color: #f97316 !important; }
-      .bg-amber-500 { background-color: #f59e0b !important; }
-      .bg-yellow-500 { background-color: #eab308 !important; }
-      .bg-lime-500 { background-color: #84cc16 !important; }
-      .bg-green-500 { background-color: #22c55e !important; }
-      .bg-emerald-500 { background-color: #10b981 !important; }
-      .bg-teal-500 { background-color: #14b8a6 !important; }
-      .bg-cyan-500 { background-color: #06b6d4 !important; }
-      .bg-sky-500 { background-color: #0ea5e9 !important; }
-      .bg-blue-500 { background-color: #3b82f6 !important; }
-      .bg-indigo-500 { background-color: #6366f1 !important; }
-      .bg-violet-500 { background-color: #8b5cf6 !important; }
-      .bg-purple-500 { background-color: #a855f7 !important; }
-      .bg-fuchsia-500 { background-color: #d946ef !important; }
-      .bg-pink-500 { background-color: #ec4899 !important; }
-      .bg-rose-500 { background-color: #f43f5e !important; }
-      .bg-gray-200 { background-color: #e5e7eb !important; }
-      .bg-gray-100 { background-color: #f3f4f6 !important; }
-      .bg-gray-50 { background-color: #f9fafb !important; }
+      .bg-red-500{background-color:#ef4444!important}.bg-orange-500{background-color:#f97316!important}
+      .bg-amber-500{background-color:#f59e0b!important}.bg-yellow-500{background-color:#eab308!important}
+      .bg-lime-500{background-color:#84cc16!important}.bg-green-500{background-color:#22c55e!important}
+      .bg-emerald-500{background-color:#10b981!important}.bg-teal-500{background-color:#14b8a6!important}
+      .bg-cyan-500{background-color:#06b6d4!important}.bg-sky-500{background-color:#0ea5e9!important}
+      .bg-blue-500{background-color:#3b82f6!important}.bg-indigo-500{background-color:#6366f1!important}
+      .bg-violet-500{background-color:#8b5cf6!important}.bg-purple-500{background-color:#a855f7!important}
+      .bg-fuchsia-500{background-color:#d946ef!important}.bg-pink-500{background-color:#ec4899!important}
+      .bg-rose-500{background-color:#f43f5e!important}.bg-gray-200{background-color:#e5e7eb!important}
+      .bg-gray-100{background-color:#f3f4f6!important}.bg-gray-50{background-color:#f9fafb!important}
     `;
 
-    const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Grade Horária - Impressão</title>
-<style>
-  @page { size: A4 ${printConfig.orientation}; margin: 10mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; background: white; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  table { width: 100%; border-collapse: collapse; }
-  td, th { border: 1px solid #000; padding: 6px; font-size: ${printConfig.fontSize}pt; }
-  .print-font-main { font-size: 1.1em; font-weight: bold; }
-  .print-font-sub { font-size: 0.75em; }
-  .print-title { font-size: 1.5em; }
-  .print-page { page-break-after: always; }
-  .print-page:last-child { page-break-after: auto; }
-  .print-cell-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50px; padding: 4px; }
-  .font-bold { font-weight: bold; }
-  .text-center { text-align: center; }
-  .uppercase { text-transform: uppercase; }
-  .tracking-widest { letter-spacing: 0.15em; }
-  .leading-tight { line-height: 1.2; }
-  .mt-1 { margin-top: 4px; }
-  .mt-6 { margin-top: 24px; }
-  .mb-2 { margin-bottom: 8px; }
-  .mb-6 { margin-bottom: 24px; }
-  .pb-2 { padding-bottom: 8px; }
-  .p-1 { padding: 4px; }
-  .p-2 { padding: 8px; }
-  .text-sm { font-size: 0.875em; }
-  .text-2xl { font-size: 1.5em; }
-  .text-lg { font-size: 1.125em; }
-  .text-right { text-align: right; }
-  .italic { font-style: italic; }
-  .border-b-2 { border-bottom: 2px solid #000; }
-  .opacity-90 { opacity: 0.9; }
-  .font-medium { font-weight: 500; }
-  .text-gray-500 { color: #6b7280; }
-  .w-full { width: 100%; }
-  .h-full { height: 100%; }
-  .h-20 { height: 80px; }
-  .w-32 { width: 128px; }
-  .flex { display: flex; }
-  .flex-col { flex-direction: column; }
-  .items-center { align-items: center; }
-  .justify-center { justify-content: center; }
-  ${colorCSS}
-</style></head><body>${printArea.innerHTML}</body></html>`;
+    // Strategy: hide the React root, insert a temp print div, print, then cleanup.
+    // This avoids breaking React's virtual DOM.
+    const root = document.getElementById('root');
+    if (!root) return;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      // Wait for content to render, then print
-      setTimeout(() => {
-        printWindow.print();
-        // Close after print dialog (some browsers)
-        setTimeout(() => { printWindow.close(); }, 500);
-      }, 300);
-    } else {
-      // Fallback if popup blocked
-      alert('Por favor, permita popups para imprimir.');
-    }
-    setIsPrintModalOpen(false);
+    // Build standalone print styles
+    const printStyles = `
+      <style id="temp-print-style">
+        @page{size:A4 ${printConfig.orientation};margin:10mm}
+        *{box-sizing:border-box}
+        body{font-family:Arial,Helvetica,sans-serif;background:#fff;margin:0;padding:10px;
+          -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+        table{width:100%;border-collapse:collapse}
+        td,th{border:1px solid #000;padding:6px;font-size:${printConfig.fontSize}pt}
+        .print-font-main{font-size:1.1em;font-weight:bold}
+        .print-font-sub{font-size:.75em}
+        .print-title{font-size:1.5em}
+        .print-page{page-break-after:always}
+        .print-page:last-child{page-break-after:auto}
+        .print-cell-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50px;padding:4px}
+        .font-bold{font-weight:bold}.text-center{text-align:center}
+        .uppercase{text-transform:uppercase}.tracking-widest{letter-spacing:.15em}
+        .leading-tight{line-height:1.2}.mt-1{margin-top:4px}.mt-6{margin-top:24px}
+        .mb-2{margin-bottom:8px}.mb-6{margin-bottom:24px}.pb-2{padding-bottom:8px}
+        .p-1{padding:4px}.p-2{padding:8px}.text-sm{font-size:.875em}
+        .text-2xl{font-size:1.5em}.text-lg{font-size:1.125em}
+        .text-right{text-align:right}.italic{font-style:italic}
+        .border-b-2{border-bottom:2px solid #000}
+        .opacity-90{opacity:.9}.font-medium{font-weight:500}
+        .text-gray-500{color:#6b7280}
+        .w-full{width:100%}.h-full{height:100%}.h-20{height:80px}.w-32{width:128px}
+        .flex{display:flex}.flex-col{flex-direction:column}
+        .items-center{align-items:center}.justify-center{justify-content:center}
+        ${colorCSS}
+      </style>
+    `;
+
+    // Create temp container
+    const tempDiv = document.createElement('div');
+    tempDiv.id = 'temp-print-container';
+    tempDiv.innerHTML = printStyles + printArea.innerHTML;
+
+    // Hide React app, show temp content
+    root.style.display = 'none';
+    document.body.appendChild(tempDiv);
+
+    // Small delay so the browser re-renders
+    setTimeout(() => {
+      window.print();
+
+      // Cleanup: restore React app
+      const restore = () => {
+        root.style.display = '';
+        const tc = document.getElementById('temp-print-container');
+        if (tc) tc.remove();
+        const ts = document.getElementById('temp-print-style');
+        if (ts) ts.remove();
+        window.removeEventListener('afterprint', restore);
+      };
+      window.addEventListener('afterprint', restore);
+      // Fallback for browsers that don't fire afterprint
+      setTimeout(restore, 5000);
+    }, 100);
   };
 
   const openModal = (day: DayOfWeek, shift: Shift, index: number, existingSlot?: ScheduleSlot) => {
