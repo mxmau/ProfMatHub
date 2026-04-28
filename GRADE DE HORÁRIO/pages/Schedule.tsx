@@ -199,16 +199,24 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
     if (!printArea) return;
     setIsPrintModalOpen(false);
 
-    // Temporarily make printable-area visible for html2canvas
-    const origStyle = printArea.getAttribute('style') || '';
-    printArea.setAttribute('style', 'position:static;width:auto;height:auto;overflow:visible;background:white;padding:16px;');
+    // Create a temporary off-screen container with fixed width so the table is never clipped
+    const tempContainer = document.createElement('div');
+    tempContainer.id = 'pdf-render-container';
+    tempContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;background:white;padding:16px;z-index:-1;';
+    tempContainer.innerHTML = printArea.innerHTML;
+    document.body.appendChild(tempContainer);
+
+    // Small delay for browser to layout the content
+    await new Promise(r => setTimeout(r, 200));
 
     try {
-      const canvas = await html2canvas(printArea, {
+      const canvas = await html2canvas(tempContainer, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
+        windowWidth: 1200,
+        width: 1200,
       });
 
       const isLandscape = printConfig.orientation === 'landscape';
@@ -218,23 +226,47 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
         format: 'a4',
       });
 
-      const pageW = pdf.internal.pageSize.getWidth() - 20;
-      const pageH = pdf.internal.pageSize.getHeight() - 20;
+      const pageW = pdf.internal.pageSize.getWidth() - 16;
+      const pageH = pdf.internal.pageSize.getHeight() - 16;
       const imgW = canvas.width;
       const imgH = canvas.height;
-      const ratio = Math.min(pageW / imgW, pageH / imgH);
-      const finalW = imgW * ratio;
-      const finalH = imgH * ratio;
-      const offsetX = (pdf.internal.pageSize.getWidth() - finalW) / 2;
-      const offsetY = 10;
 
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, offsetY, finalW, finalH);
+      // If the image is taller than one page, we need to split across pages
+      const ratio = pageW / imgW;
+      const scaledH = imgH * ratio;
+
+      if (scaledH <= pageH) {
+        // Fits on one page
+        const offsetX = (pdf.internal.pageSize.getWidth() - pageW) / 2;
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, 8, pageW, scaledH);
+      } else {
+        // Multi-page: slice the canvas
+        const sliceHeight = Math.floor(pageH / ratio);
+        let y = 0;
+        let page = 0;
+        while (y < imgH) {
+          if (page > 0) pdf.addPage();
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = imgW;
+          sliceCanvas.height = Math.min(sliceHeight, imgH - y);
+          const ctx = sliceCanvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(canvas, 0, y, imgW, sliceCanvas.height, 0, 0, imgW, sliceCanvas.height);
+            const sliceRatio = pageW / sliceCanvas.width;
+            pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 8, 8, pageW, sliceCanvas.height * sliceRatio);
+          }
+          y += sliceHeight;
+          page++;
+        }
+      }
+
       pdf.save('Grade_Horaria.pdf');
     } catch (err) {
       console.error('PDF generation error:', err);
       alert('Erro ao gerar PDF. Tente novamente.');
     } finally {
-      printArea.setAttribute('style', origStyle);
+      const tc = document.getElementById('pdf-render-container');
+      if (tc) tc.remove();
     }
   };
 
