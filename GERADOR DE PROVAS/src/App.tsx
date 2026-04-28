@@ -667,9 +667,9 @@ export default function App() {
                     <p className="text-sm font-medium text-slate-700">{generationStep || 'Elaborando questões...'}</p>
                     
                     <div className="w-64 max-w-[80%] h-2 bg-slate-200 rounded-full mt-4 overflow-hidden">
+                      <style>{`.dynamic-progress { width: ${progress}%; }`}</style>
                       <div 
-                        className="h-full bg-indigo-600 transition-all duration-500 ease-out rounded-full"
-                        style={{ width: `${progress}%` }}
+                        className="h-full bg-indigo-600 transition-all duration-500 ease-out rounded-full dynamic-progress"
                       />
                     </div>
                     <p className="text-xs mt-2 text-slate-500">{Math.round(progress)}% concluído</p>
