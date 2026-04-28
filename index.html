@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProfMat Hub</title>
+  
+  <!-- PWA Meta Tags -->
+  <link rel="icon" type="image/png" href="/pwa-192x192.png">
+  <link rel="apple-touch-icon" href="/pwa-192x192.png">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="Ferramentas do Professor de Matemática (Notas de Aula, Gerador de Provas e Grade)">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Patrick+Hand&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-hand {
+      font-family: 'Patrick Hand', cursive;
+    }
+    .font-latex {
+      font-family: 'EB Garamond', serif;
+    }
+    .board-bg {
+      background-color: #f0f4f8;
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .chalkboard {
+      background-color: #2d3748;
+      color: #e2e8f0;
+      font-family: 'Patrick Hand', cursive;
+    }
+    
+    .lined-paper {
+      background-image: linear-gradient(#e5e7eb 1px, transparent 1px);
+      background-size: 100% 2rem;
+    }
+    
+    @media print {
+      @page {
+        margin: 0.8cm;
+        size: A4;
+      }
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-size: 11pt;
+      }
+      .print-grid-2 {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 1rem !important;
+      }
+      .break-inside-avoid {
+        break-inside: avoid;
+      }
+      .print\\:hidden {
+        display: none !important;
+      }
+    }
+  </style>
+
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="./index.tsx"></script>
+</body>
+</html>

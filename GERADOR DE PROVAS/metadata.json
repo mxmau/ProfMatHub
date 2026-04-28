@@ -1,0 +1,5 @@
+{
+  "name": "Gerador de Provas de Matemática (Igarassu/PE)",
+  "description": "Gera provas de matemática em LaTeX para o Ensino Fundamental (6º ao 9º ano), contextualizadas com a realidade de Igarassu/PE e alinhadas à Base Curricular.",
+  "requestFramePermissions": []
+}

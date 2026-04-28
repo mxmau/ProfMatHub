@@ -1,0 +1,6 @@
+{
+  "name": "ProfOrganiza PE",
+  "description": "Aplicativo de organização de horários para professores com suporte a múltiplas cidades e regras de turno específicas (São Lourenço da Mata e Igarassu).",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
