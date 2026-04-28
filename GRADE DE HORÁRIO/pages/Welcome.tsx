@@ -1,11 +1,12 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { GraduationCap, CheckCircle2, LayoutGrid, MapPin } from 'lucide-react';
 
-const Welcome: React.FC = () => {
-  const navigate = useNavigate();
+interface WelcomeProps {
+  onEnter: () => void;
+}
 
+const Welcome: React.FC<WelcomeProps> = ({ onEnter }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-900 flex flex-col items-center justify-center p-6 font-sans">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden transform transition-all hover:scale-[1.01] duration-300">
@@ -37,7 +38,7 @@ const Welcome: React.FC = () => {
           <Button 
             fullWidth 
             size="lg" 
-            onClick={() => navigate('/dashboard')}
+            onClick={onEnter}
             className="h-14 text-lg shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 transition-all"
           >
             Acessar Sistema
