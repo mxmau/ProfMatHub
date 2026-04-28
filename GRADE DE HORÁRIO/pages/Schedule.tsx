@@ -110,164 +110,68 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
     setIsClearModalOpen(false);
   };
 
-  const triggerPrint = () => {
-    const printArea = document.getElementById('printable-area');
-    if (!printArea) return;
-    setIsPrintModalOpen(false);
-
-    // Color definitions for Tailwind classes
-    const colorCSS = `
-      .bg-red-500{background-color:#ef4444!important}.bg-orange-500{background-color:#f97316!important}
-      .bg-amber-500{background-color:#f59e0b!important}.bg-yellow-500{background-color:#eab308!important}
-      .bg-lime-500{background-color:#84cc16!important}.bg-green-500{background-color:#22c55e!important}
-      .bg-emerald-500{background-color:#10b981!important}.bg-teal-500{background-color:#14b8a6!important}
-      .bg-cyan-500{background-color:#06b6d4!important}.bg-sky-500{background-color:#0ea5e9!important}
-      .bg-blue-500{background-color:#3b82f6!important}.bg-indigo-500{background-color:#6366f1!important}
-      .bg-violet-500{background-color:#8b5cf6!important}.bg-purple-500{background-color:#a855f7!important}
-      .bg-fuchsia-500{background-color:#d946ef!important}.bg-pink-500{background-color:#ec4899!important}
-      .bg-rose-500{background-color:#f43f5e!important}.bg-gray-200{background-color:#e5e7eb!important}
-      .bg-gray-100{background-color:#f3f4f6!important}.bg-gray-50{background-color:#f9fafb!important}
-    `;
-
-    // Strategy: hide the React root, insert a temp print div, print, then cleanup.
-    // This avoids breaking React's virtual DOM.
-    const root = document.getElementById('root');
-    if (!root) return;
-
-    // Build standalone print styles
-    const printStyles = `
-      <style id="temp-print-style">
-        @page{size:A4 ${printConfig.orientation};margin:10mm}
-        *{box-sizing:border-box}
-        body{font-family:Arial,Helvetica,sans-serif;background:#fff;margin:0;padding:10px;
-          -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-        table{width:100%;border-collapse:collapse}
-        td,th{border:1px solid #000;padding:6px;font-size:${printConfig.fontSize}pt}
-        .print-font-main{font-size:1.1em;font-weight:bold}
-        .print-font-sub{font-size:.75em}
-        .print-title{font-size:1.5em}
-        .print-page{page-break-after:always}
-        .print-page:last-child{page-break-after:auto}
-        .print-cell-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50px;padding:4px}
-        .font-bold{font-weight:bold}.text-center{text-align:center}
-        .uppercase{text-transform:uppercase}.tracking-widest{letter-spacing:.15em}
-        .leading-tight{line-height:1.2}.mt-1{margin-top:4px}.mt-6{margin-top:24px}
-        .mb-2{margin-bottom:8px}.mb-6{margin-bottom:24px}.pb-2{padding-bottom:8px}
-        .p-1{padding:4px}.p-2{padding:8px}.text-sm{font-size:.875em}
-        .text-2xl{font-size:1.5em}.text-lg{font-size:1.125em}
-        .text-right{text-align:right}.italic{font-style:italic}
-        .border-b-2{border-bottom:2px solid #000}
-        .opacity-90{opacity:.9}.font-medium{font-weight:500}
-        .text-gray-500{color:#6b7280}
-        .w-full{width:100%}.h-full{height:100%}.h-20{height:80px}.w-32{width:128px}
-        .flex{display:flex}.flex-col{flex-direction:column}
-        .items-center{align-items:center}.justify-center{justify-content:center}
-        ${colorCSS}
-      </style>
-    `;
-
-    // Create temp container
-    const tempDiv = document.createElement('div');
-    tempDiv.id = 'temp-print-container';
-    tempDiv.innerHTML = printStyles + printArea.innerHTML;
-
-    // Hide React app, show temp content
-    root.style.display = 'none';
-    document.body.appendChild(tempDiv);
-
-    // Small delay so the browser re-renders
-    setTimeout(() => {
-      window.print();
-
-      // Cleanup: restore React app
-      const restore = () => {
-        root.style.display = '';
-        const tc = document.getElementById('temp-print-container');
-        if (tc) tc.remove();
-        const ts = document.getElementById('temp-print-style');
-        if (ts) ts.remove();
-        window.removeEventListener('afterprint', restore);
-      };
-      window.addEventListener('afterprint', restore);
-      // Fallback for browsers that don't fire afterprint
-      setTimeout(restore, 5000);
-    }, 100);
-  };
+  const triggerPrint = () => downloadPDF();
 
   const downloadPDF = async () => {
-    const printArea = document.getElementById('printable-area');
-    if (!printArea) return;
     setIsPrintModalOpen(false);
 
-    // Create a temporary off-screen container with fixed width so the table is never clipped
-    const tempContainer = document.createElement('div');
-    tempContainer.id = 'pdf-render-container';
-    tempContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;background:white;padding:16px;z-index:-1;';
-    tempContainer.innerHTML = printArea.innerHTML;
-    document.body.appendChild(tempContainer);
+    const shifts: ('Manhã' | 'Tarde')[] = [];
+    if (printConfig.showMorning) shifts.push('Manhã');
+    if (printConfig.showAfternoon) shifts.push('Tarde');
+    if (shifts.length === 0) return;
 
-    // Small delay for browser to layout the content
-    await new Promise(r => setTimeout(r, 200));
+    const isLandscape = printConfig.orientation === 'landscape';
+    const pdf = new jsPDF({
+      orientation: isLandscape ? 'landscape' : 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
 
-    try {
-      const canvas = await html2canvas(tempContainer, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        windowWidth: 1200,
-        width: 1200,
-      });
+    const margin = 5; // 5mm margins for maximum space
+    const pageW = pdf.internal.pageSize.getWidth() - margin * 2;
+    const pageH = pdf.internal.pageSize.getHeight() - margin * 2;
 
-      const isLandscape = printConfig.orientation === 'landscape';
-      const pdf = new jsPDF({
-        orientation: isLandscape ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
+    for (let s = 0; s < shifts.length; s++) {
+      const shift = shifts[s];
+      if (s > 0) pdf.addPage();
 
-      const pageW = pdf.internal.pageSize.getWidth() - 16;
-      const pageH = pdf.internal.pageSize.getHeight() - 16;
-      const imgW = canvas.width;
-      const imgH = canvas.height;
+      // Get the corresponding printable div
+      const sourceEl = document.getElementById(`printable-${shift === 'Manhã' ? 'morning' : 'afternoon'}`);
+      if (!sourceEl) continue;
 
-      // If the image is taller than one page, we need to split across pages
-      const ratio = pageW / imgW;
-      const scaledH = imgH * ratio;
+      // Create temp off-screen container with fixed width
+      const tempDiv = document.createElement('div');
+      tempDiv.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;background:white;padding:12px;z-index:-1;font-family:Arial,sans-serif;';
+      tempDiv.innerHTML = sourceEl.innerHTML;
+      document.body.appendChild(tempDiv);
 
-      if (scaledH <= pageH) {
-        // Fits on one page
-        const offsetX = (pdf.internal.pageSize.getWidth() - pageW) / 2;
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, 8, pageW, scaledH);
-      } else {
-        // Multi-page: slice the canvas
-        const sliceHeight = Math.floor(pageH / ratio);
-        let y = 0;
-        let page = 0;
-        while (y < imgH) {
-          if (page > 0) pdf.addPage();
-          const sliceCanvas = document.createElement('canvas');
-          sliceCanvas.width = imgW;
-          sliceCanvas.height = Math.min(sliceHeight, imgH - y);
-          const ctx = sliceCanvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(canvas, 0, y, imgW, sliceCanvas.height, 0, 0, imgW, sliceCanvas.height);
-            const sliceRatio = pageW / sliceCanvas.width;
-            pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 8, 8, pageW, sliceCanvas.height * sliceRatio);
-          }
-          y += sliceHeight;
-          page++;
-        }
+      await new Promise(r => setTimeout(r, 150));
+
+      try {
+        const canvas = await html2canvas(tempDiv, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          windowWidth: 1200,
+          width: 1200,
+        });
+
+        const imgW = canvas.width;
+        const imgH = canvas.height;
+        const ratio = Math.min(pageW / imgW, pageH / imgH);
+        const finalW = imgW * ratio;
+        const finalH = imgH * ratio;
+        const offsetX = margin + (pageW - finalW) / 2;
+        const offsetY = margin + (pageH - finalH) / 2;
+
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', offsetX, offsetY, finalW, finalH);
+      } finally {
+        tempDiv.remove();
       }
-
-      pdf.save('Grade_Horaria.pdf');
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      alert('Erro ao gerar PDF. Tente novamente.');
-    } finally {
-      const tc = document.getElementById('pdf-render-container');
-      if (tc) tc.remove();
     }
+
+    pdf.save('Grade_Horaria.pdf');
   };
 
   const openModal = (day: DayOfWeek, shift: Shift, index: number, existingSlot?: ScheduleSlot) => {
@@ -645,19 +549,18 @@ const Schedule: React.FC<ScheduleProps> = ({ data, onUpdateSchedule }) => {
                  </div>
                  <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
                     <Button variant="secondary" onClick={() => setIsPrintModalOpen(false)}>Cancelar</Button>
-                    <div className="flex gap-3">
-                      <Button onClick={triggerPrint} className="px-6 flex-1" variant="secondary"><Printer size={18} className="mr-2"/> Imprimir</Button>
-                      <Button onClick={downloadPDF} className="px-6 flex-1"><Download size={18} className="mr-2"/> Baixar PDF</Button>
-                    </div>
+                    <Button onClick={downloadPDF} className="px-8"><Download size={18} className="mr-2"/> Gerar PDF</Button>
                  </div>
              </div>
         </div>
       )}
 
-      {/* PRINTABLE AREA — hidden on screen, visible only in @media print */}
-      <div id="printable-area" style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
-          {printConfig.showMorning && renderPrintableTable('Manhã')}
-          {printConfig.showAfternoon && renderPrintableTable('Tarde')}
+      {/* PRINTABLE AREAS — one per shift, hidden on screen */}
+      <div id="printable-morning" style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+          {renderPrintableTable('Manhã')}
+      </div>
+      <div id="printable-afternoon" style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+          {renderPrintableTable('Tarde')}
       </div>
 
       {/* Manual Modal (Add/Edit) */}
