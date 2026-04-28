@@ -12,7 +12,9 @@ export const unit4: Unit = {
     'EF06MA28: Plantas baixas e escalas.',
     'EF06MA29: Área e perímetro.',
     'EF06MA31: Probabilidade.',
-    'EF06MA32: Gráficos e tabelas estatísticas  items: [
+    'EF06MA32: Gráficos e tabelas estatísticas.'
+  ],
+  items: [
      { id: 'l4-1', type: 'lesson', title: 'Aula 01 - Medidas de Comprimento', skill: 'EF06MA24', complexity: 'Baixa', content: { intro: 'O quão longo é isso?', development: ['Unidade padrão: Metro ($m$).', 'Múltiplos (km) e Submúltiplos (cm, mm).', 'A régua e a fita métrica.'], examples: [{question: 'Quantos centímetros tem em 1 metro?', answer: '$100cm$.'}], conclusion: 'Medir é comparar grandezas.' } },
      { id: 'l4-2', type: 'lesson', title: 'Aula 02 - Conversão de Comprimento', skill: 'EF06MA24', complexity: 'Média', content: { intro: 'Trocando as réguas.', development: ['Andar com a vírgula para a direita (multiplicar).', 'Andar com a vírgula para a esquerda (dividir).'], examples: [{question: 'Converta $2,5m$ para centímetros.', answer: '$250cm$.'}], conclusion: 'Para unidades menores, multiplique. Maiores, divida.' } },
      { id: 'p4-1', type: 'practical', title: 'Aula 03 - Prática: Medindo a Sala', skill: 'EF06MA24', complexity: 'Baixa', practicalDescription: 'Usando trenas, os alunos devem medir o comprimento, largura e porta da sala de aula, anotando as medidas em m e convertendo para cm e mm no caderno.' },
