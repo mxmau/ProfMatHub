@@ -250,12 +250,12 @@ async function withFallback<T>(
     return result;
   } catch (primaryError: any) {
     const errStr = (primaryError?.message || '').toUpperCase();
-    const isQuota = errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED') || errStr.includes('QUOTA');
+    // Only abort the chain immediately for authentication errors (wrong API key)
+    const isAuthError = errStr.includes('401') || errStr.includes('403') || errStr.includes('UNAUTHENTICATED') || errStr.includes('PERMISSION_DENIED');
+    if (isAuthError) throw primaryError;
     
-    if (!isQuota && !(primaryError instanceof RetryError)) throw primaryError;
-    
-    console.warn('Gemini primary failed, trying Groq fallback...');
-    onRetry?.(1, 4, 'Alternando para Groq (Gemini sobrecarregado)');
+    console.warn('Gemini primary failed, trying Groq fallback...', primaryError?.message);
+    onRetry?.(1, 4, 'Alternando para Groq (Gemini indisponível)');
   }
 
   // 2. Try Groq
@@ -299,10 +299,10 @@ async function withFallback<T>(
     }
   }
 
-  // 4. Try Gemini Flash (different model, might have separate quota)
+  // 4. Try Gemini Flash (older stable model with separate quota bucket)
   try {
     setCurrentProvider('gemini-flash');
-    const flashConfig = { ...geminiConfig, model: 'gemini-2.0-flash' };
+    const flashConfig = { ...geminiConfig, model: 'gemini-1.5-flash' };
     const result = await withRetry(async () => {
       const response = await getAI().models.generateContent(flashConfig);
       const text = response.text || '{}';
@@ -446,7 +446,7 @@ Se a questão for de múltipla escolha, forneça exatamente 4 opções no array 
 
   try {
     const config: GenerateContentParameters = {
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash-preview-05-20',
       contents: prompt,
       config: {
         systemInstruction,
@@ -560,7 +560,7 @@ Por favor, analise a prova acima e retorne um objeto JSON contendo o relatório 
 
   try {
     const config: GenerateContentParameters = {
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash-preview-05-20',
       contents: prompt,
       config: {
         systemInstruction,
