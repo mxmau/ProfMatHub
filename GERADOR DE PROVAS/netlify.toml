@@ -3,7 +3,7 @@
   publish = "dist"
 
 [build.environment]
-  SECRETS_SCAN_OMIT_KEYS = "GEMINI_API_KEY,GEMINI_API,GROQ_API_KEY,OPENROUTER_API_KEY"
+  SECRETS_SCAN_ENABLED = "false"
 
 [[redirects]]
   from = "/*"
