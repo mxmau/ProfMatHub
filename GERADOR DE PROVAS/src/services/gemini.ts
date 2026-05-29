@@ -40,7 +40,7 @@ function getAI(): GoogleGenAI {
 }
 
 // --- GROQ API (OpenAI-compatible) ---
-const GROQ_API_KEY = (typeof process !== 'undefined' && process.env?.GROQ_API_KEY) || '';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 async function callGroq(systemPrompt: string, userPrompt: string): Promise<string> {
@@ -80,8 +80,8 @@ async function callGroq(systemPrompt: string, userPrompt: string): Promise<strin
 }
 
 // --- OPENROUTER API (OpenAI-compatible free LLMs) ---
-const OPENROUTER_API_KEY = (typeof process !== 'undefined' && process.env?.OPENROUTER_API_KEY) || '';
-const OPENROUTER_MODEL = (typeof process !== 'undefined' && process.env?.OPENROUTER_MODEL) || 'meta-llama/llama-3.3-70b-instruct:free';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
 
 async function callOpenRouter(systemPrompt: string, userPrompt: string): Promise<string> {
   if (!OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY não configurada');
