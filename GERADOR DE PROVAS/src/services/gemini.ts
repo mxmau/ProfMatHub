@@ -244,6 +244,11 @@ async function withFallback<T>(
   parseResult: (text: string) => T,
   onRetry?: (attempt: number, maxRetries: number, reason: string) => void
 ): Promise<T> {
+  let geminiErrorMsg = '';
+  let groqErrorMsg = '';
+  let openrouterErrorMsg = '';
+  let flashErrorMsg = '';
+
   // 1. Try primary Gemini model
   try {
     setCurrentProvider('gemini');
@@ -254,12 +259,8 @@ async function withFallback<T>(
     }, 3, onRetry);
     return result;
   } catch (primaryError: any) {
-    // Always try fallback providers when Gemini fails:
-    // - quota/rate limit (429) → Groq/OpenRouter might have capacity
-    // - leaked/banned key (403) → Groq/OpenRouter are valid alternatives
-    // - wrong model name (404) → try next provider
-    // Only bail out on clear network/CORS failures that would affect all providers
-    console.warn('Gemini primary failed, trying Groq fallback...', primaryError?.message);
+    geminiErrorMsg = primaryError?.message || String(primaryError);
+    console.warn('Gemini primary failed, trying Groq fallback...', geminiErrorMsg);
     onRetry?.(1, 4, 'Alternando para Groq (Gemini indisponível)');
   }
 
@@ -271,7 +272,6 @@ async function withFallback<T>(
       const result = await withRetry(async () => {
         const text = await callGroq(systemPrompt, userPrompt);
         const parsed = parseResult(text);
-        // Validate: if questions is empty, it means truncation or bad parse — try next provider
         const anyResult = parsed as any;
         if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
           throw new Error('Groq retornou lista de questões vazia (possível truncamento)');
@@ -280,11 +280,13 @@ async function withFallback<T>(
       }, 2, onRetry);
       return result;
     } catch (groqError: any) {
-      console.warn('Groq fallback failed, trying OpenRouter...', groqError?.message);
+      groqErrorMsg = groqError?.message || String(groqError);
+      console.warn('Groq fallback failed, trying OpenRouter...', groqErrorMsg);
       onRetry?.(2, 4, 'Alternando para OpenRouter (Groq falhou)');
       groqFailed = true;
     }
   } else {
+    groqErrorMsg = 'Chave GROQ_API_KEY não configurada no Netlify';
     console.warn('Groq API key not set, skipping to OpenRouter...');
     onRetry?.(2, 4, 'Groq não configurado, tentando OpenRouter');
     groqFailed = true;
@@ -301,10 +303,12 @@ async function withFallback<T>(
         }, 2, onRetry);
         return result;
       } catch (openrouterError: any) {
-        console.warn('OpenRouter fallback failed, trying Gemini Flash...');
+        openrouterErrorMsg = openrouterError?.message || String(openrouterError);
+        console.warn('OpenRouter fallback failed, trying Gemini Flash...', openrouterErrorMsg);
         onRetry?.(3, 4, 'Alternando para Gemini Flash (OpenRouter falhou)');
       }
     } else {
+      openrouterErrorMsg = 'Chave OPENROUTER_API_KEY não configurada no Netlify';
       console.warn('OpenRouter API key not set, skipping to Gemini Flash...');
       onRetry?.(3, 4, 'OpenRouter não configurado, tentando Gemini Flash');
     }
@@ -321,14 +325,15 @@ async function withFallback<T>(
     }, 3, onRetry);
     return result;
   } catch (flashError: any) {
+    flashErrorMsg = flashError?.message || String(flashError);
     setCurrentProvider('gemini');
     throw new RetryError(
-      'Todos os provedores falharam (Gemini, Groq, OpenRouter, Gemini Flash). Por favor, tente novamente em alguns minutos.',
+      'Todos os provedores falharam. Por favor, revise as chaves de API configuradas no painel do Netlify ou aguarde alguns minutos.',
       [
-        `Gemini: esgotado`,
-        `Groq: ${GROQ_API_KEY ? 'falhou' : 'não configurado'}`,
-        `OpenRouter: ${OPENROUTER_API_KEY ? 'falhou' : 'não configurado'}`,
-        `Gemini Flash: falhou`
+        `Gemini (2.5-Flash-Preview): ${geminiErrorMsg}`,
+        `Groq (Llama-3.3-70B): ${GROQ_API_KEY ? `falhou (${groqErrorMsg})` : 'não configurado'}`,
+        `OpenRouter (${OPENROUTER_MODEL}): ${OPENROUTER_API_KEY ? `falhou (${openrouterErrorMsg})` : 'não configurado'}`,
+        `Gemini (1.5-Flash): ${flashErrorMsg}`
       ]
     );
   }
