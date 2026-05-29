@@ -59,9 +59,9 @@ async function callGroq(systemPrompt: string, userPrompt: string): Promise<strin
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.7,
-      // 32768 is Groq's max output tokens — needed for 50+ detailed questions
+      // 8000 is safe for Groq's TPM limits while still providing ample space for concise 50+ questions.
       // Do NOT use response_format: json_object here — it causes silent truncation on large outputs
-      max_tokens: 32768,
+      max_tokens: 8000,
     }),
   });
 
@@ -380,27 +380,57 @@ function parseJSONWithFallback<T>(text: string): T {
     return JSON.parse(text) as T;
   } catch (error) {
     console.warn("Failed to parse JSON directly, attempting to sanitize...");
+    let sanitized = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    
     try {
-      // First, just try stripping markdown code blocks
-      let sanitized = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-      
+      return JSON.parse(sanitized) as T;
+    } catch (e2) {
+      console.warn("Standard sanitization failed, checking for truncation recovery...");
       try {
-        return JSON.parse(sanitized) as T;
-      } catch (e2) {
-        // If it still fails, try fixing unescaped newlines inside strings
-        // A naive approach: replace literal newlines with \n, but only if they are inside strings.
-        // Actually, replacing all literal newlines with spaces is safer for JSON, 
-        // but we must NOT replace \\" with \" because it breaks LaTeX strings ending in \\
-        sanitized = sanitized.replace(/[\n\r\t]/g, ' ');
-        
-        // Remove trailing commas before closing brackets/braces
-        sanitized = sanitized.replace(/,\s*([\]}])/g, '$1');
-        
-        return JSON.parse(sanitized) as T;
+        let lastClosedQuestionIdx = sanitized.lastIndexOf('}');
+        while (lastClosedQuestionIdx > 0) {
+          const substring = sanitized.slice(0, lastClosedQuestionIdx + 1);
+          
+          // Test with questions key
+          try {
+            const candidate = substring.trim() + '\n  ]\n}';
+            const parsed = JSON.parse(candidate) as T;
+            if (parsed && (parsed as any).questions && (parsed as any).questions.length > 0) {
+              console.log(`🎉 Recuperado com sucesso via Truncation Recovery! ${(parsed as any).questions.length} questões recuperadas.`);
+              return parsed;
+            }
+          } catch (e) {}
+          
+          // Test with questoes key
+          try {
+            const candidate = substring.trim() + '\n  ]\n}';
+            const parsed = JSON.parse(candidate) as any;
+            if (parsed && parsed.questoes && parsed.questoes.length > 0) {
+              parsed.questions = parsed.questoes;
+              console.log(`🎉 Recuperado com sucesso via Truncation Recovery (questoes)! ${parsed.questions.length} questões recuperadas.`);
+              return parsed as T;
+            }
+          } catch (e) {}
+          
+          // Test if we just need to close array of questions directly if there is no outer questions key
+          try {
+            const candidate = '{\n  "questions": ' + substring.trim() + '\n}';
+            const parsed = JSON.parse(candidate) as T;
+            if (parsed && (parsed as any).questions && (parsed as any).questions.length > 0) {
+              console.log(`🎉 Recuperado com sucesso via Truncation Recovery (direct array)! ${(parsed as any).questions.length} questões recuperadas.`);
+              return parsed;
+            }
+          } catch (e) {}
+          
+          lastClosedQuestionIdx = sanitized.lastIndexOf('}', lastClosedQuestionIdx - 1);
+        }
+      } catch (truncationError) {
+        console.error("Truncation recovery failed:", truncationError);
       }
-    } catch (fallbackError) {
-      console.error("Failed to parse sanitized JSON:", fallbackError);
-      throw error; // Throw original error
+      
+      sanitized = sanitized.replace(/[\n\r\t]/g, ' ');
+      sanitized = sanitized.replace(/,\s*([\]}])/g, '$1');
+      return JSON.parse(sanitized) as T;
     }
   }
 }
@@ -438,6 +468,32 @@ ${bankOfContexts}
 FORMATO DE SAÍDA E SINTAXE LATEX (CRÍTICO):
 Você deve retornar ESTRITAMENTE um objeto JSON válido contendo a lista de questões.
 As fórmulas matemáticas devem usar a sintaxe LaTeX.
+
+Você DEVE usar EXATAMENTE a estrutura de chaves e campos abaixo (em inglês):
+{
+  "questions": [
+    {
+      "id": 1,
+      "type": "direta", // ou "contextualizada"
+      "text": "Texto do enunciado com LaTeX",
+      "options": ["Texto Opção A", "Texto Opção B", "Texto Opção C", "Texto Opção D"], // vazio [] se for aberta
+      "answer": "Resposta correta (A, B, C, D ou texto completo se for aberta)",
+      "explanation": "Explicação/resolução passo a passo",
+      "metadata": {
+        "habilidadeIgarassu": "EF07MA02-IGPE",
+        "nivelComplexidade": "Fácil", // "Fácil", "Médio" ou "Difícil"
+        "unidadeTematica": "Números",
+        "objetoConhecimento": "Inteiros"
+      }
+    }
+  ]
+}
+
+REGRAS DE CONCISÃO CRÍTICAS (OBRIGATÓRIO PARA EVITAR LIMITE DE TOKENS EM PROVEDORES DE FALLBACK):
+1. TEXTO DOS ENUNCIADOS: Seja direto. Evite rodeios ou histórias excessivamente longas. Máximo 2 sentenças.
+2. EXPLICAÇÃO (explanation): Forneça apenas a resolução matemática passo a passo direta e ultra-curta (máximo de 15 palavras). Exemplo: "Área = 5m x 4m = 20m²" ou "Cálculo: 10% de 200 = 20".
+3. METADATA: Use termos curtos (máximo 2 palavras) para "unidadeTematica" e "objetoConhecimento".
+
 REGRAS OBRIGATÓRIAS DE LATEX PARA EVITAR ERROS DE COMPILAÇÃO:
 1. SÍMBOLO DE PORCENTAGEM: Você NUNCA deve usar o símbolo "%" sozinho, pois ele atua como comentário no LaTeX e quebra a compilação. SEMPRE escape o símbolo de porcentagem usando DUAS barras invertidas no JSON: "\\\\%" (exemplo: "15\\\\% de desconto").
 2. MODO MATEMÁTICO: TODO E QUALQUER comando matemático (como \\\\frac, \\\\sqrt, ^, _) DEVE estar dentro do modo matemático usando cifrões ($). Exemplo correto: "$\\\\frac{1}{2}$".
@@ -556,13 +612,41 @@ REGRAS DE CONTEÚDO E ESTRUTURA:
 3. CONTEXTUALIZAÇÃO: Verifique se os contextos de ${localContextName} são válidos e não repetitivos.
 4. PROPORÇÃO DE TIPOS DE QUESTÃO: Ajuste a prova para que exatamente 20% das questões sejam OBJETIVAS (múltipla escolha) e 80% sejam ABERTAS/DISCURSIVAS (sem opções).
 
+REGRAS DE CONCISÃO CRÍTICAS (OBRIGATÓRIO PARA EVITAR LIMITE DE TOKENS EM PROVEDORES DE FALLBACK):
+1. TEXTO DOS ENUNCIADOS (text): Mantenha-os diretos, com no máximo 2 sentenças.
+2. EXPLICAÇÃO (explanation): Mantenha a resolução ultra-curta (máximo de 15 palavras).
+3. METADATA: Use nomes de "unidadeTematica" e "objetoConhecimento" curtos.
+
 O relatório de QA deve ser formatado em Markdown e conter as seguintes seções:
 - Validação Estrutural
 - Validação de Conteúdo
 - Validação Pedagógica
 - Problemas Identificados
 - Ações Corretivas Realizadas
-- Status Final (APROVADO ou AJUSTES REALIZADOS)`;
+- Status Final (APROVADO ou AJUSTES REALIZADOS)
+
+Seu retorno DEVE ser um objeto JSON estrito com esta estrutura:
+{
+  "qaReport": "Relatório em markdown",
+  "correctedExam": {
+    "questions": [
+      {
+        "id": 1,
+        "type": "direta", // ou "contextualizada"
+        "text": "Texto do enunciado com LaTeX",
+        "options": ["Texto Opção A", "Texto Opção B", "Texto Opção C", "Texto Opção D"], // vazio [] se for aberta
+        "answer": "Resposta correta",
+        "explanation": "Explicação/resolução passo a passo",
+        "metadata": {
+          "habilidadeIgarassu": "EF07MA02-IGPE",
+          "nivelComplexidade": "Fácil", // "Fácil", "Médio" ou "Difícil"
+          "unidadeTematica": "Números",
+          "objetoConhecimento": "Inteiros"
+        }
+      }
+    ]
+  }
+}`;
 
   const prompt = `Prova Original (JSON):
 ${JSON.stringify(originalExam, null, 2)}
