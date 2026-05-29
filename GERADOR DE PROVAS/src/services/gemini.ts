@@ -55,12 +55,13 @@ async function callGroq(systemPrompt: string, userPrompt: string): Promise<strin
     body: JSON.stringify({
       model: GROQ_MODEL,
       messages: [
-        { role: 'system', content: systemPrompt + '\n\nRESPONDA ESTRITAMENTE EM JSON VÁLIDO.' },
+        { role: 'system', content: systemPrompt + '\n\nRESPONDA ESTRITAMENTE EM JSON VÁLIDO. Não inclua texto fora do JSON.' },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.7,
-      max_tokens: 8192,
-      response_format: { type: 'json_object' },
+      // 32768 is Groq's max output tokens — needed for 50+ detailed questions
+      // Do NOT use response_format: json_object here — it causes silent truncation on large outputs
+      max_tokens: 32768,
     }),
   });
 
@@ -70,7 +71,12 @@ async function callGroq(systemPrompt: string, userPrompt: string): Promise<strin
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || '{}';
+  const content = data.choices?.[0]?.message?.content || '{}';
+  const finishReason = data.choices?.[0]?.finish_reason;
+  if (finishReason === 'length') {
+    console.warn('Groq: resposta truncada pelo limite de tokens (finish_reason=length)');
+  }
+  return content;
 }
 
 // --- OPENROUTER API (OpenAI-compatible free LLMs) ---
@@ -91,12 +97,11 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string): Promise
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
       messages: [
-        { role: 'system', content: systemPrompt + '\n\nRESPONDA ESTRITAMENTE EM JSON VÁLIDO.' },
+        { role: 'system', content: systemPrompt + '\n\nRESPONDA ESTRITAMENTE EM JSON VÁLIDO. Não inclua texto fora do JSON.' },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.7,
-      max_tokens: 8192,
-      response_format: { type: 'json_object' },
+      max_tokens: 16384,
     }),
   });
 
@@ -249,11 +254,11 @@ async function withFallback<T>(
     }, 3, onRetry);
     return result;
   } catch (primaryError: any) {
-    const errStr = (primaryError?.message || '').toUpperCase();
-    // Only abort the chain immediately for authentication errors (wrong API key)
-    const isAuthError = errStr.includes('401') || errStr.includes('403') || errStr.includes('UNAUTHENTICATED') || errStr.includes('PERMISSION_DENIED');
-    if (isAuthError) throw primaryError;
-    
+    // Always try fallback providers when Gemini fails:
+    // - quota/rate limit (429) → Groq/OpenRouter might have capacity
+    // - leaked/banned key (403) → Groq/OpenRouter are valid alternatives
+    // - wrong model name (404) → try next provider
+    // Only bail out on clear network/CORS failures that would affect all providers
     console.warn('Gemini primary failed, trying Groq fallback...', primaryError?.message);
     onRetry?.(1, 4, 'Alternando para Groq (Gemini indisponível)');
   }
@@ -265,11 +270,17 @@ async function withFallback<T>(
       setCurrentProvider('groq');
       const result = await withRetry(async () => {
         const text = await callGroq(systemPrompt, userPrompt);
-        return parseResult(text);
+        const parsed = parseResult(text);
+        // Validate: if questions is empty, it means truncation or bad parse — try next provider
+        const anyResult = parsed as any;
+        if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
+          throw new Error('Groq retornou lista de questões vazia (possível truncamento)');
+        }
+        return parsed;
       }, 2, onRetry);
       return result;
     } catch (groqError: any) {
-      console.warn('Groq fallback failed, trying OpenRouter...');
+      console.warn('Groq fallback failed, trying OpenRouter...', groqError?.message);
       onRetry?.(2, 4, 'Alternando para OpenRouter (Groq falhou)');
       groqFailed = true;
     }
