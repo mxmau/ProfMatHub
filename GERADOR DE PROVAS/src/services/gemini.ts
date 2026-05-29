@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type, GenerateContentParameters } from '@google/genai';
 
 // --- PROVIDER MANAGEMENT ---
-type ProviderName = 'gemini' | 'groq' | 'openrouter' | 'gemini-flash';
+type ProviderName = 'gemini' | 'nvidia' | 'groq' | 'openrouter' | 'gemini-flash';
 
 interface ProviderStatus {
   name: ProviderName;
@@ -108,6 +108,39 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string): Promise
   if (!response.ok) {
     const errBody = await response.text();
     throw new Error(`OpenRouter API error ${response.status}: ${errBody}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '{}';
+}
+
+// --- NVIDIA API (OpenAI-compatible premium NIM models) ---
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || '';
+const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct';
+
+async function callNvidia(systemPrompt: string, userPrompt: string): Promise<string> {
+  if (!NVIDIA_API_KEY) throw new Error('NVIDIA_API_KEY não configurada');
+  
+  const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${NVIDIA_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: NVIDIA_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt + '\n\nRESPONDA ESTRITAMENTE EM JSON VÁLIDO. Não inclua texto fora do JSON.' },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 8000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    throw new Error(`NVIDIA API error ${response.status}: ${errBody}`);
   }
 
   const data = await response.json();
@@ -245,6 +278,7 @@ async function withFallback<T>(
   onRetry?: (attempt: number, maxRetries: number, reason: string) => void
 ): Promise<T> {
   let geminiErrorMsg = '';
+  let nvidiaErrorMsg = '';
   let groqErrorMsg = '';
   let openrouterErrorMsg = '';
   let flashErrorMsg = '';
@@ -260,39 +294,70 @@ async function withFallback<T>(
     return result;
   } catch (primaryError: any) {
     geminiErrorMsg = primaryError?.message || String(primaryError);
-    console.warn('Gemini primary failed, trying Groq fallback...', geminiErrorMsg);
-    onRetry?.(1, 4, 'Alternando para Groq (Gemini indisponível)');
+    console.warn('Gemini primary failed, trying NVIDIA fallback...', geminiErrorMsg);
+    onRetry?.(1, 5, 'Alternando para NVIDIA Pro (Gemini indisponível)');
   }
 
-  // 2. Try Groq
-  let groqFailed = false;
-  if (GROQ_API_KEY) {
+  // 2. Try NVIDIA
+  let nvidiaFailed = false;
+  if (NVIDIA_API_KEY) {
     try {
-      setCurrentProvider('groq');
+      setCurrentProvider('nvidia');
       const result = await withRetry(async () => {
-        const text = await callGroq(systemPrompt, userPrompt);
+        const text = await callNvidia(systemPrompt, userPrompt);
         const parsed = parseResult(text);
         const anyResult = parsed as any;
         if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
-          throw new Error('Groq retornou lista de questões vazia (possível truncamento)');
+          throw new Error('NVIDIA retornou lista de questões vazia (possível truncamento)');
         }
         return parsed;
       }, 2, onRetry);
       return result;
-    } catch (groqError: any) {
-      groqErrorMsg = groqError?.message || String(groqError);
-      console.warn('Groq fallback failed, trying OpenRouter...', groqErrorMsg);
-      onRetry?.(2, 4, 'Alternando para OpenRouter (Groq falhou)');
-      groqFailed = true;
+    } catch (nvidiaError: any) {
+      nvidiaErrorMsg = nvidiaError?.message || String(nvidiaError);
+      console.warn('NVIDIA fallback failed, trying Groq...', nvidiaErrorMsg);
+      onRetry?.(2, 5, 'Alternando para Groq (NVIDIA falhou)');
+      nvidiaFailed = true;
     }
   } else {
-    groqErrorMsg = 'Chave GROQ_API_KEY não configurada no Netlify';
-    console.warn('Groq API key not set, skipping to OpenRouter...');
-    onRetry?.(2, 4, 'Groq não configurado, tentando OpenRouter');
-    groqFailed = true;
+    nvidiaErrorMsg = 'Chave NVIDIA_API_KEY não configurada no Netlify';
+    console.warn('NVIDIA API key not set, skipping to Groq...');
+    onRetry?.(2, 5, 'NVIDIA não configurada, tentando Groq');
+    nvidiaFailed = true;
   }
 
-  // 3. Try OpenRouter
+  // 3. Try Groq
+  let groqFailed = false;
+  if (nvidiaFailed) {
+    if (GROQ_API_KEY) {
+      try {
+        setCurrentProvider('groq');
+        const result = await withRetry(async () => {
+          const text = await callGroq(systemPrompt, userPrompt);
+          const parsed = parseResult(text);
+          const anyResult = parsed as any;
+          if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
+            throw new Error('Groq retornou lista de questões vazia (possível truncamento)');
+          }
+          return parsed;
+        }, 2, onRetry);
+        return result;
+      } catch (groqError: any) {
+        groqErrorMsg = groqError?.message || String(groqError);
+        console.warn('Groq fallback failed, trying OpenRouter...', groqErrorMsg);
+        onRetry?.(3, 5, 'Alternando para OpenRouter (Groq falhou)');
+        groqFailed = true;
+      }
+    } else {
+      groqErrorMsg = 'Chave GROQ_API_KEY não configurada no Netlify';
+      console.warn('Groq API key not set, skipping to OpenRouter...');
+      onRetry?.(3, 5, 'Groq não configurado, tentando OpenRouter');
+      groqFailed = true;
+    }
+  }
+
+  // 4. Try OpenRouter
+  let openrouterFailed = false;
   if (groqFailed) {
     if (OPENROUTER_API_KEY) {
       try {
@@ -305,16 +370,18 @@ async function withFallback<T>(
       } catch (openrouterError: any) {
         openrouterErrorMsg = openrouterError?.message || String(openrouterError);
         console.warn('OpenRouter fallback failed, trying Gemini Flash...', openrouterErrorMsg);
-        onRetry?.(3, 4, 'Alternando para Gemini Flash (OpenRouter falhou)');
+        onRetry?.(4, 5, 'Alternando para Gemini Flash (OpenRouter falhou)');
+        openrouterFailed = true;
       }
     } else {
       openrouterErrorMsg = 'Chave OPENROUTER_API_KEY não configurada no Netlify';
       console.warn('OpenRouter API key not set, skipping to Gemini Flash...');
-      onRetry?.(3, 4, 'OpenRouter não configurado, tentando Gemini Flash');
+      onRetry?.(4, 5, 'OpenRouter não configurado, tentando Gemini Flash');
+      openrouterFailed = true;
     }
   }
 
-  // 4. Try Gemini Flash (older stable model with separate quota bucket)
+  // 5. Try Gemini Flash (older stable model with separate quota bucket)
   try {
     setCurrentProvider('gemini-flash');
     const flashConfig = { ...geminiConfig, model: 'gemini-1.5-flash' };
@@ -331,6 +398,7 @@ async function withFallback<T>(
       'Todos os provedores falharam. Por favor, revise as chaves de API configuradas no painel do Netlify ou aguarde alguns minutos.',
       [
         `Gemini (2.5-Flash-Preview): ${geminiErrorMsg}`,
+        `NVIDIA (${NVIDIA_MODEL}): ${NVIDIA_API_KEY ? `falhou (${nvidiaErrorMsg})` : 'não configurado'}`,
         `Groq (Llama-3.3-70B): ${GROQ_API_KEY ? `falhou (${groqErrorMsg})` : 'não configurado'}`,
         `OpenRouter (${OPENROUTER_MODEL}): ${OPENROUTER_API_KEY ? `falhou (${openrouterErrorMsg})` : 'não configurado'}`,
         `Gemini (1.5-Flash): ${flashErrorMsg}`

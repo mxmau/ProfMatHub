@@ -62,6 +62,8 @@ export default defineConfig(({ mode }) => {
         'process.env.GROQ_API_KEY':       JSON.stringify(env.GROQ_API_KEY         || process.env.GROQ_API_KEY         || ''),
         'process.env.OPENROUTER_API_KEY': JSON.stringify(env.OPENROUTER_API_KEY   || process.env.OPENROUTER_API_KEY   || ''),
         'process.env.OPENROUTER_MODEL':   JSON.stringify(env.OPENROUTER_MODEL     || process.env.OPENROUTER_MODEL     || 'meta-llama/llama-3.3-70b-instruct:free'),
+        'process.env.NVIDIA_API_KEY':     JSON.stringify(env.NVIDIA_API_KEY       || process.env.NVIDIA_API_KEY       || ''),
+        'process.env.NVIDIA_MODEL':       JSON.stringify(env.NVIDIA_MODEL         || process.env.NVIDIA_MODEL         || 'meta/llama-3.3-70b-instruct'),
       },
       optimizeDeps: {
         include: ['react', 'react-dom', 'react-router-dom']

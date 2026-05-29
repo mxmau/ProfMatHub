@@ -680,8 +680,18 @@ export default function App() {
                     )}
                     {isGenerating && (
                       <p className="text-xs mt-1 text-slate-400">
-                        Provedor: <span className={`font-semibold ${activeProvider === 'gemini' ? 'text-blue-500' : activeProvider === 'groq' ? 'text-green-500' : activeProvider === 'openrouter' ? 'text-orange-500' : 'text-purple-500'}`}>
-                          {activeProvider === 'gemini' ? '🔵 Gemini' : activeProvider === 'groq' ? '🟢 Groq (Llama)' : activeProvider === 'openrouter' ? '🟠 OpenRouter (Llama Free)' : '🟣 Gemini Flash'}
+                        Provedor: <span className={`font-semibold ${
+                          activeProvider === 'gemini' ? 'text-blue-500' :
+                          activeProvider === 'nvidia' ? 'text-violet-600' :
+                          activeProvider === 'groq' ? 'text-green-500' :
+                          activeProvider === 'openrouter' ? 'text-orange-500' :
+                          'text-purple-500'
+                        }`}>
+                          {activeProvider === 'gemini' ? '🔵 Gemini' :
+                           activeProvider === 'nvidia' ? '🟣 NVIDIA Pro' :
+                           activeProvider === 'groq' ? '🟢 Groq (Llama)' :
+                           activeProvider === 'openrouter' ? '🟠 OpenRouter (Llama Free)' :
+                           '⚡ Gemini Flash'}
                         </span>
                       </p>
                     )}
