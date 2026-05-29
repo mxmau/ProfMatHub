@@ -54,11 +54,14 @@ export default defineConfig(({ mode }) => {
         })
       ],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GROQ_API_KEY': JSON.stringify(env.GROQ_API_KEY || ''),
-        'process.env.OPENROUTER_API_KEY': JSON.stringify(env.OPENROUTER_API_KEY || ''),
-        'process.env.OPENROUTER_MODEL': JSON.stringify(env.OPENROUTER_MODEL || '')
+        // loadEnv reads .env files (local dev).
+        // process.env reads Netlify UI env vars (production build).
+        // We need BOTH: env file wins for local, process.env wins on Netlify.
+        'process.env.API_KEY':            JSON.stringify(env.GEMINI_API_KEY       || process.env.GEMINI_API_KEY       || ''),
+        'process.env.GEMINI_API_KEY':     JSON.stringify(env.GEMINI_API_KEY       || process.env.GEMINI_API_KEY       || ''),
+        'process.env.GROQ_API_KEY':       JSON.stringify(env.GROQ_API_KEY         || process.env.GROQ_API_KEY         || ''),
+        'process.env.OPENROUTER_API_KEY': JSON.stringify(env.OPENROUTER_API_KEY   || process.env.OPENROUTER_API_KEY   || ''),
+        'process.env.OPENROUTER_MODEL':   JSON.stringify(env.OPENROUTER_MODEL     || process.env.OPENROUTER_MODEL     || 'meta-llama/llama-3.3-70b-instruct:free'),
       },
       optimizeDeps: {
         include: ['react', 'react-dom', 'react-router-dom']
