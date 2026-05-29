@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type, GenerateContentParameters } from '@google/genai';
 
 // --- PROVIDER MANAGEMENT ---
-type ProviderName = 'gemini' | 'groq' | 'gemini-flash';
+type ProviderName = 'gemini' | 'groq' | 'openrouter' | 'gemini-flash';
 
 interface ProviderStatus {
   name: ProviderName;
@@ -67,6 +67,42 @@ async function callGroq(systemPrompt: string, userPrompt: string): Promise<strin
   if (!response.ok) {
     const errBody = await response.text();
     throw new Error(`Groq API error ${response.status}: ${errBody}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '{}';
+}
+
+// --- OPENROUTER API (OpenAI-compatible free LLMs) ---
+const OPENROUTER_API_KEY = (typeof process !== 'undefined' && process.env?.OPENROUTER_API_KEY) || '';
+const OPENROUTER_MODEL = (typeof process !== 'undefined' && process.env?.OPENROUTER_MODEL) || 'meta-llama/llama-3.3-70b-instruct:free';
+
+async function callOpenRouter(systemPrompt: string, userPrompt: string): Promise<string> {
+  if (!OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY não configurada');
+  
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'HTTP-Referer': 'https://profmathub.netlify.app',
+      'X-Title': 'ProfMatHub',
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt + '\n\nRESPONDA ESTRITAMENTE EM JSON VÁLIDO.' },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 8192,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    throw new Error(`OpenRouter API error ${response.status}: ${errBody}`);
   }
 
   const data = await response.json();
@@ -195,7 +231,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, onRetry?: (att
 }
 
 // --- FALLBACK WRAPPER ---
-// Tries primary (Gemini), then Groq, then Gemini Flash
+// Tries primary (Gemini), then Groq, then OpenRouter, then Gemini Flash
 async function withFallback<T>(
   geminiConfig: GenerateContentParameters,
   systemPrompt: string,
@@ -219,10 +255,11 @@ async function withFallback<T>(
     if (!isQuota && !(primaryError instanceof RetryError)) throw primaryError;
     
     console.warn('Gemini primary failed, trying Groq fallback...');
-    onRetry?.(1, 3, 'Alternando para Groq (Gemini sobrecarregado)');
+    onRetry?.(1, 4, 'Alternando para Groq (Gemini sobrecarregado)');
   }
 
   // 2. Try Groq
+  let groqFailed = false;
   if (GROQ_API_KEY) {
     try {
       setCurrentProvider('groq');
@@ -232,15 +269,37 @@ async function withFallback<T>(
       }, 2, onRetry);
       return result;
     } catch (groqError: any) {
-      console.warn('Groq fallback failed, trying Gemini Flash...');
-      onRetry?.(2, 3, 'Alternando para Gemini Flash (Groq falhou)');
+      console.warn('Groq fallback failed, trying OpenRouter...');
+      onRetry?.(2, 4, 'Alternando para OpenRouter (Groq falhou)');
+      groqFailed = true;
     }
   } else {
-    console.warn('Groq API key not set, skipping to Gemini Flash...');
-    onRetry?.(2, 3, 'Groq não configurado, tentando Gemini Flash');
+    console.warn('Groq API key not set, skipping to OpenRouter...');
+    onRetry?.(2, 4, 'Groq não configurado, tentando OpenRouter');
+    groqFailed = true;
   }
 
-  // 3. Try Gemini Flash (different model, might have separate quota)
+  // 3. Try OpenRouter
+  if (groqFailed) {
+    if (OPENROUTER_API_KEY) {
+      try {
+        setCurrentProvider('openrouter');
+        const result = await withRetry(async () => {
+          const text = await callOpenRouter(systemPrompt, userPrompt);
+          return parseResult(text);
+        }, 2, onRetry);
+        return result;
+      } catch (openrouterError: any) {
+        console.warn('OpenRouter fallback failed, trying Gemini Flash...');
+        onRetry?.(3, 4, 'Alternando para Gemini Flash (OpenRouter falhou)');
+      }
+    } else {
+      console.warn('OpenRouter API key not set, skipping to Gemini Flash...');
+      onRetry?.(3, 4, 'OpenRouter não configurado, tentando Gemini Flash');
+    }
+  }
+
+  // 4. Try Gemini Flash (different model, might have separate quota)
   try {
     setCurrentProvider('gemini-flash');
     const flashConfig = { ...geminiConfig, model: 'gemini-2.0-flash' };
@@ -253,8 +312,13 @@ async function withFallback<T>(
   } catch (flashError: any) {
     setCurrentProvider('gemini');
     throw new RetryError(
-      'Todos os provedores falharam (Gemini, Groq, Gemini Flash). Por favor, tente novamente em alguns minutos.',
-      [`Gemini: esgotado`, `Groq: ${GROQ_API_KEY ? 'falhou' : 'não configurado'}`, `Gemini Flash: falhou`]
+      'Todos os provedores falharam (Gemini, Groq, OpenRouter, Gemini Flash). Por favor, tente novamente em alguns minutos.',
+      [
+        `Gemini: esgotado`,
+        `Groq: ${GROQ_API_KEY ? 'falhou' : 'não configurado'}`,
+        `OpenRouter: ${OPENROUTER_API_KEY ? 'falhou' : 'não configurado'}`,
+        `Gemini Flash: falhou`
+      ]
     );
   }
 }
