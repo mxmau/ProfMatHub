@@ -258,7 +258,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, onRetry?: (att
       }
       
       if (isQuotaError) {
-        throw new RetryError('Os servidores do Google estão sobrecarregados no momento. Por favor, tente novamente em alguns minutos.', retryLog);
+        throw new RetryError('Os servidores do provedor de IA estão sobrecarregados ou o limite de cota foi atingido. Por favor, tente novamente em alguns minutos.', retryLog);
       }
       
       throw new RetryError(error?.message || 'Erro ao gerar conteúdo', retryLog);
