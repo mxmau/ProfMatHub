@@ -487,7 +487,7 @@ export default function App() {
                       title="Quantidade de Questões"
                       placeholder="Quantidade"
                       min="1" 
-                      max="30"
+                      max="50"
                       className="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50 border p-2.5 text-sm"
                       value={params.questionCount}
                       onChange={e => setParams({...params, questionCount: parseInt(e.target.value) || 10})}

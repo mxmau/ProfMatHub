@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 
 .env
+
+# Test outputs and scripts
+rawGen.txt
+test-workflow-output.json
+test-*.mjs
+
+

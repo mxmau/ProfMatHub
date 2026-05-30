@@ -223,11 +223,8 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, onRetry?: (att
       const logEntry = `Tentativa ${i + 1}/${maxRetries} falhou: ${reason}. Detalhe: ${error?.message || errorString}`;
       retryLog.push(logEntry);
       
-      if ((isQuotaError || isJsonError || isTimeoutError) && i < maxRetries - 1) {
-        if (isDailyQuotaError) {
-          throw new RetryError('O limite diário de uso da API gratuita foi atingido. Por favor, tente novamente amanhã ou configure uma chave de API com faturamento.', retryLog);
-        }
-        
+      // Retries on ANY error except daily quota exhausted, until maxRetries is reached
+      if (!isDailyQuotaError && i < maxRetries - 1) {
         // Extract retryDelay from error details if available
         let delay = 4000; // Default 4 seconds
         
@@ -294,7 +291,7 @@ async function withFallback<T>(
       const response = await getAI().models.generateContent(geminiConfig);
       const text = response.text || '{}';
       return parseResult(text);
-    }, 3, onRetry);
+    }, 3, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`));
     return result;
   } catch (primaryError: any) {
     geminiErrorMsg = primaryError?.message || String(primaryError);
@@ -315,7 +312,7 @@ async function withFallback<T>(
           throw new Error('NVIDIA retornou lista de questões vazia (possível truncamento)');
         }
         return parsed;
-      }, 2, onRetry);
+      }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`));
       return result;
     } catch (nvidiaError: any) {
       nvidiaErrorMsg = nvidiaError?.message || String(nvidiaError);
@@ -344,7 +341,7 @@ async function withFallback<T>(
             throw new Error('Groq retornou lista de questões vazia (possível truncamento)');
           }
           return parsed;
-        }, 2, onRetry);
+        }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`));
         return result;
       } catch (groqError: any) {
         groqErrorMsg = groqError?.message || String(groqError);
@@ -369,7 +366,7 @@ async function withFallback<T>(
         const result = await withRetry(async () => {
           const text = await callOpenRouter(systemPrompt, userPrompt);
           return parseResult(text);
-        }, 2, onRetry);
+        }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`));
         return result;
       } catch (openrouterError: any) {
         openrouterErrorMsg = openrouterError?.message || String(openrouterError);
@@ -393,7 +390,7 @@ async function withFallback<T>(
       const response = await getAI().models.generateContent(flashConfig);
       const text = response.text || '{}';
       return parseResult(text);
-    }, 3, onRetry);
+    }, 3, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`));
     return result;
   } catch (flashError: any) {
     flashErrorMsg = flashError?.message || String(flashError);
@@ -537,20 +534,54 @@ export async function generateExam(params: ExamParams, onRetry?: (attempt: numbe
     bankOfContexts = '- Banco de Contextos Locais: Misture elementos de Igarassu (Forte Orange, Sítio Histórico) e São Lourenço da Mata (Arena de Pernambuco, Engenhos), além de contextos genéricos do cotidiano.';
   }
 
-  const systemInstruction = `Você é um gerador avançado de provas de Matemática para os anos finais do Ensino Fundamental (6º ao 9º ano). Seu objetivo é criar avaliações precisas, dinâmicas, altamente contextualizadas com a realidade local de Pernambuco (${localContext}) e rigorosamente alinhadas às diretrizes curriculares escolhidas pelo usuário.
+  const totalQuestions = params.questionCount;
+  const targetObjective = Math.round(totalQuestions * 0.20);
+  const targetOpen = totalQuestions - targetObjective;
+
+  let generatedObjective = 0;
+  let generatedOpen = 0;
+  let allQuestions: ExamQuestion[] = [];
+  
+  const batchSize = 5;
+  const totalBatches = Math.ceil(totalQuestions / batchSize);
+  
+  for (let startId = 1; startId <= totalQuestions; startId += batchSize) {
+    const currentBatchSize = Math.min(batchSize, totalQuestions - startId + 1);
+    const currentBatchNum = Math.ceil(startId / batchSize);
+    
+    // Calculate how many objective and open questions to request in this batch
+    let batchObjective = 0;
+    let batchOpen = 0;
+    
+    for (let j = 0; j < currentBatchSize; j++) {
+      if (generatedObjective + batchObjective < targetObjective) {
+        batchObjective++;
+      } else {
+        batchOpen++;
+      }
+    }
+    
+    // Summarize previously generated questions to avoid repeats
+    const previousQuestionsSummary = allQuestions.length > 0 
+      ? allQuestions.map(q => `- Questão ${q.id} (Tema: ${q.metadata.objetoConhecimento}, Nível: ${q.metadata.nivelComplexidade}): ${q.text.slice(0, 100)}...`).join('\n')
+      : 'Nenhuma questão gerada ainda.';
+
+    const systemInstruction = `Você é um gerador avançado de provas de Matemática para os anos finais do Ensino Fundamental (6º ao 9º ano). Seu objetivo é criar avaliações precisas, dinâmicas, altamente contextualizadas com a realidade local de Pernambuco (${localContext}) e rigorosamente alinhadas às diretrizes curriculares escolhidas pelo usuário.
+
+REGRA ABSOLUTA DE QUANTIDADE DE QUESTÕES (CRÍTICO):
+Nesta chamada de lote, você DEVE gerar EXATAMENTE ${currentBatchSize} questões (IDs de ${startId} até ${startId + currentBatchSize - 1})! O array "questions" DEVE conter precisamente ${currentBatchSize} itens, nem mais, nem menos.
 
 REGRAS DA BASE CURRICULAR:
 - Se "Currículo de Igarassu": Use as habilidades locais baseadas na BNCC (Ex: EF06MA01-IGPE).
 - Se "Matriz da Luz": Use os Descritores da Matriz (Ex: D01, D14).
 - Se "Ambos": Cada questão deve cruzar um Objeto de Conhecimento do Currículo de Igarassu com um Descritor compatível da Matriz da Luz.
 
-ESTRUTURA E PROPORÇÃO DA PROVA:
-- 20% - Questões Diretas: Focadas em algoritmos, cálculos puros e procedimentos matemáticos.
-- 80% - Questões Contextualizadas: Problemas aplicados à realidade (Múltipla Escolha, Resposta Aberta, Completar Lacunas, Análise de Gráficos/Tabelas).
+ESTRUTURA E PROPORÇÃO DO LOTE:
+- Você deve gerar EXATAMENTE ${currentBatchSize} questões nesta chamada de lote.
+- Dessas ${currentBatchSize} questões, EXATAMENTE ${batchObjective} DEVEM ser OBJETIVAS (múltipla escolha com 4 opções A/B/C/D) e EXATAMENTE ${batchOpen} DEVEM ser ABERTAS/DISCURSIVAS (sem opções).
+- PROGRESSÃO DE DIFICULDADE: A prova DEVE ser rigorosamente ordenada por nível de dificuldade.
+- GABARITO RANDOMIZADO: As respostas corretas das questões de múltipla escolha DEVEM ser distribuídas aleatoriamente.
 ${bankOfContexts}
-- TIPOS DE QUESTÃO: Exatamente 20% das questões DEVEM ser OBJETIVAS (múltipla escolha) e 80% DEVEM ser ABERTAS/DISCURSIVAS (sem opções de múltipla escolha).
-- PROGRESSÃO DE DIFICULDADE: A prova DEVE ser rigorosamente ordenada por nível de dificuldade: primeiro as Fáceis, depois as Médias, e por fim as Difíceis.
-- GABARITO RANDOMIZADO: As respostas corretas das questões de múltipla escolha DEVEM ser distribuídas aleatoriamente e de forma equilibrada entre as opções A, B, C e D. NUNCA coloque todas as respostas corretas na mesma letra (ex: evite que todas sejam "A").
 
 FORMATO DE SAÍDA E SINTAXE LATEX (CRÍTICO):
 Você deve retornar ESTRITAMENTE um objeto JSON válido contendo a lista de questões.
@@ -560,7 +591,7 @@ Você DEVE usar EXATAMENTE a estrutura de chaves e campos abaixo (em inglês):
 {
   "questions": [
     {
-      "id": 1,
+      "id": ${startId},
       "type": "direta", // ou "contextualizada"
       "text": "Texto do enunciado com LaTeX",
       "options": ["Texto Opção A", "Texto Opção B", "Texto Opção C", "Texto Opção D"], // vazio [] se for aberta
@@ -576,95 +607,113 @@ Você DEVE usar EXATAMENTE a estrutura de chaves e campos abaixo (em inglês):
   ]
 }
 
-REGRAS DE CONCISÃO CRÍTICAS (OBRIGATÓRIO PARA EVITAR LIMITE DE TOKENS EM PROVEDORES DE FALLBACK):
-1. TEXTO DOS ENUNCIADOS: Seja direto. Evite rodeios ou histórias excessivamente longas. Máximo 2 sentenças.
-2. EXPLICAÇÃO (explanation): Forneça apenas a resolução matemática passo a passo direta e ultra-curta (máximo de 15 palavras). Exemplo: "Área = 5m x 4m = 20m²" ou "Cálculo: 10% de 200 = 20".
-3. METADATA: Use termos curtos (máximo 2 palavras) para "unidadeTematica" e "objetoConhecimento".
+REGRAS DE CONCISÃO CRÍTICAS:
+1. TEXTO DOS ENUNCIADOS: Seja direto. Evite rodeios. Máximo 2 sentenças.
+2. EXPLICAÇÃO (explanation): Forneça apenas a resolução direta e ultra-curta (máximo de 15 palavras).
+3. METADATA: Use termos curtos (máximo 2 palavras).
 
-REGRAS OBRIGATÓRIAS DE LATEX PARA EVITAR ERROS DE COMPILAÇÃO:
-1. SÍMBOLO DE PORCENTAGEM: Você NUNCA deve usar o símbolo "%" sozinho, pois ele atua como comentário no LaTeX e quebra a compilação. SEMPRE escape o símbolo de porcentagem usando DUAS barras invertidas no JSON: "\\\\%" (exemplo: "15\\\\% de desconto").
-2. MODO MATEMÁTICO: TODO E QUALQUER comando matemático (como \\\\frac, \\\\sqrt, ^, _) DEVE estar dentro do modo matemático usando cifrões ($). Exemplo correto: "$\\\\frac{1}{2}$".
-3. ACENTOS NO MODO MATEMÁTICO: NUNCA use palavras com acentos (como ç, á, é, ã) dentro do modo matemático ($...$). Se precisar escrever texto com acentos junto com matemática, coloque o texto FORA dos cifrões. Exemplo errado: "$preço = 50$". Exemplo correto: "preço = $50$".
-4. ESPAÇAMENTO: NUNCA adicione comandos de espaçamento como \\\\vspace{} no texto das questões ou nas opções. O sistema já adiciona o espaço para respostas automaticamente.
-5. SÍMBOLO DE MOEDA (R$): NUNCA use "R$" diretamente no texto, pois o cifrão ($) abre o modo matemático e quebra a formatação visual. SEMPRE escape o cifrão usando DUAS barras invertidas no JSON: "R\\\\$". Exemplo correto: "R\\\\$ 50,00".
-6. OPÇÕES DE RESPOSTA: No array 'options', forneça APENAS o texto da opção, SEM o prefixo da letra (ex: "15" em vez de "A) 15" ou "a. 15"). O sistema já adiciona as letras automaticamente.
-Se a questão for de múltipla escolha, forneça exatamente 4 opções no array 'options'. Se for aberta, omita o campo 'options' ou forneça um array vazio [].`;
+REGRAS OBRIGATÓRIAS DE LATEX:
+1. SÍMBOLO DE PORCENTAGEM: SEMPRE escape o símbolo de porcentagem usando DUAS barras invertidas no JSON: "\\\\%".
+2. MODO MATEMÁTICO: TODO comando matemático DEVE estar dentro de cifrões ($).
+3. ACENTOS NO MODO MATEMÁTICO: NUNCA use palavras com acentos dentro do modo matemático ($...$).
+4. ESPAÇAMENTO: NUNCA adicione comandos de espaçamento como \\\\vspace{} no texto das questões.
+5. SÍMBOLO DE MOEDA (R$): SEMPRE escape o cifrão usando DUAS barras invertidas no JSON: "R\\\\$".
+6. OPÇÕES DE RESPOSTA: No array 'options', forneça APENAS o texto da opção, SEM o prefixo da letra.`;
 
-  const prompt = `Por favor, gere uma prova de matemática com os seguintes parâmetros:
+    const prompt = `Por favor, gere um lote de questões de matemática com os seguintes parâmetros:
+- Lote atual: Questões do id ${startId} até ${startId + currentBatchSize - 1} (Total de ${currentBatchSize} questões de um total de ${totalQuestions})
+- Tipo de questões neste lote: Gerar EXATAMENTE ${batchObjective} questões OBJETIVAS (múltipla escolha) e ${batchOpen} questões ABERTAS (discursivas).
 - Ano/Série: ${params.grade}
-- Quantidade de questões: ${params.questionCount}
-- Base Curricular: ${params.curriculum}
 - Tópicos/Conteúdos: ${params.topics || 'Abranger a matriz geral do ano'}
 - Nível de dificuldade: ${params.difficulty}
-- Contexto temático: ${params.context || 'Variado (usar banco de contextos locais)'}`;
+- Contexto temático: ${params.context || 'Variado (usar banco de contextos locais)'}
+- Questões já geradas nos lotes anteriores (Evite repetir os enunciados ou contextos abaixo para manter a diversidade pedagógica):
+${previousQuestionsSummary}`;
 
-  try {
-    const config: GenerateContentParameters = {
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-        maxOutputTokens: 8192,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            questions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.INTEGER },
-                  type: { type: Type.STRING, description: "direta ou contextualizada" },
-                  text: { type: Type.STRING, description: "Enunciado da questão com formatação markdown e LaTeX para matemática" },
-                  options: { 
-                    type: Type.ARRAY, 
-                    items: { type: Type.STRING },
-                    description: "Array com 4 opções se for múltipla escolha, vazio se for aberta."
-                  },
-                  answer: { type: Type.STRING, description: "A resposta correta (ex: 'A' ou o valor exato)" },
-                  explanation: { type: Type.STRING, description: "Resolução passo a passo" },
-                  metadata: {
-                    type: Type.OBJECT,
-                    properties: {
-                      habilidadeIgarassu: { type: Type.STRING },
-                      descritorMatrizLuz: { type: Type.STRING },
-                      nivelComplexidade: { type: Type.STRING },
-                      unidadeTematica: { type: Type.STRING },
-                      objetoConhecimento: { type: Type.STRING }
+    // Display progress to the user
+    onRetry?.(currentBatchNum, totalBatches, `Gerando questões ${startId} a ${startId + currentBatchSize - 1}`);
+
+    try {
+      const config: GenerateContentParameters = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+          maxOutputTokens: 4096, // Reduced since payload is smaller
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              questions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.INTEGER },
+                    type: { type: Type.STRING, description: "direta ou contextualizada" },
+                    text: { type: Type.STRING, description: "Enunciado da questão com formatação markdown e LaTeX para matemática" },
+                    options: { 
+                      type: Type.ARRAY, 
+                      items: { type: Type.STRING },
+                      description: "Array com 4 opções se for múltipla escolha, vazio se for aberta."
                     },
-                    required: ["nivelComplexidade", "unidadeTematica", "objetoConhecimento"]
-                  }
-                },
-                required: ["id", "type", "text", "answer", "explanation", "metadata"]
+                    answer: { type: Type.STRING, description: "A resposta correta (ex: 'A' ou o valor exato)" },
+                    explanation: { type: Type.STRING, description: "Resolução passo a passo" },
+                    metadata: {
+                      type: Type.OBJECT,
+                      properties: {
+                        habilidadeIgarassu: { type: Type.STRING },
+                        descritorMatrizLuz: { type: Type.STRING },
+                        nivelComplexidade: { type: Type.STRING },
+                        unidadeTematica: { type: Type.STRING },
+                        objetoConhecimento: { type: Type.STRING }
+                      },
+                      required: ["nivelComplexidade", "unidadeTematica", "objetoConhecimento"]
+                    }
+                  },
+                  required: ["id", "type", "text", "answer", "explanation", "metadata"]
+                }
               }
-            }
-          },
-          required: ["questions"]
-        }
-      },
-    };
+            },
+            required: ["questions"]
+          }
+        },
+      };
 
-    const result = await withFallback(
-      config,
-      systemInstruction,
-      prompt,
-      (text) => parseJSONWithFallback<ExamData>(text),
-      onRetry
-    );
-    return result;
-  } catch (error: any) {
-    console.error("Erro em generateExam:", error);
-    if (error instanceof RetryError) {
-      throw error;
+      const batchResult = await withFallback(
+        config,
+        systemInstruction,
+        prompt,
+        (text) => parseJSONWithFallback<ExamData>(text),
+        onRetry
+      );
+
+      const batchQuestions = batchResult.questions || [];
+      
+      // Ensure IDs are corrected and match the expected startId sequence
+      batchQuestions.forEach((q, idx) => {
+        q.id = startId + idx;
+      });
+
+      allQuestions = allQuestions.concat(batchQuestions);
+      
+      // Update counters
+      batchQuestions.forEach(q => {
+        if (q.options && q.options.length > 0) {
+          generatedObjective++;
+        } else {
+          generatedOpen++;
+        }
+      });
+
+    } catch (batchError: any) {
+      console.error(`Erro ao gerar lote a partir do id ${startId}:`, batchError);
+      throw new Error(`Falha no lote de geração (Questões ${startId} a ${startId + currentBatchSize - 1}): ${batchError?.message || batchError}`);
     }
-    const errorString = (error?.message || JSON.stringify(error)).toUpperCase();
-    if (errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('QUOTA')) {
-      throw new Error("Limite de cota excedido. O sistema está tentando processar sua solicitação, mas os servidores do Google estão sobrecarregados. Por favor, aguarde 30 segundos e tente novamente.");
-    }
-    throw new Error(`Falha ao gerar a prova: ${error?.message || 'Erro desconhecido'}`);
   }
+
+  return { questions: allQuestions };
 }
 
 export interface QAResult {
@@ -682,24 +731,42 @@ export async function runQAAndCorrect(originalExam: ExamData, params: ExamParams
     localContextName = 'Igarassu/PE e São Lourenço da Mata/PE';
   }
 
-  const systemInstruction = `Você é um VALIDADOR e CORRETOR ESPECIALIZADO em provas de Matemática para 6º-9º ano.
-Sua missão: Receber uma prova em JSON, realizar uma análise de qualidade (QA) rigorosa e retornar a prova corrigida junto com o relatório de QA, tudo em um único objeto JSON.
+  const questions = originalExam.questions || [];
+  const batchSize = 10;
+  const totalBatches = Math.ceil(questions.length / batchSize);
+  let allCorrectedQuestions: ExamQuestion[] = [];
+  let allReports: string[] = [];
+
+  for (let i = 0; i < questions.length; i += batchSize) {
+    const batchQuestions = questions.slice(i, i + batchSize);
+    const batchExam: ExamData = { questions: batchQuestions };
+    const currentStart = i + 1;
+    const currentEnd = Math.min(i + batchSize, questions.length);
+    const currentBatchNum = Math.ceil(currentStart / batchSize);
+
+    onRetry?.(currentBatchNum, totalBatches, `Validando questões ${currentStart} a ${currentEnd}`);
+
+    const systemInstruction = `Você é um VALIDADOR e CORRETOR ESPECIALIZADO em provas de Matemática para 6º-9º ano.
+Sua missão: Receber um lote de questões de uma prova em JSON, realizar uma análise de qualidade (QA) rigorosa sobre esse lote e retornar as questões corrigidas junto com o relatório de QA, tudo em um único objeto JSON.
+
+REGRA ABSOLUTA DE QUANTIDADE DE QUESTÕES (CRÍTICO):
+A prova corrigida retornada no campo "correctedExam" DEVE conter EXATAMENTE o mesmo número de questões do lote original que você recebeu (neste lote: ${batchQuestions.length} questões, com IDs de ${currentStart} a ${currentEnd})! Você NÃO pode remover nenhuma questão ou reduzir o lote.
 
 REGRAS OBRIGATÓRIAS DE LATEX PARA EVITAR ERROS DE COMPILAÇÃO (CRÍTICO):
 1. SÍMBOLO DE PORCENTAGEM: Você NUNCA deve usar o símbolo "%" sozinho. SEMPRE escape o símbolo de porcentagem usando DUAS barras invertidas no JSON: "\\\\%" (exemplo: "15\\\\% de desconto").
-2. MODO MATEMÁTICO: TODO E QUALQUER comando matemático (como \\\\frac, \\\\sqrt, ^, _) DEVE estar dentro do modo matemático usando cifrões ($). Exemplo correto: "$\\\\frac{1}{2}$".
-3. ACENTOS NO MODO MATEMÁTICO: NUNCA use palavras com acentos (como ç, á, é, ã) dentro do modo matemático ($...$). Exemplo correto: "preço = $50$".
+2. MODO MATEMÁTICO: TODO E QUALQUER comando matemático DEVE estar dentro de cifrões ($).
+3. ACENTOS NO MODO MATEMÁTICO: NUNCA use palavras com acentos dentro de cifrões ($...$).
 4. ESPAÇAMENTO: NUNCA adicione comandos de espaçamento como \\\\vspace{} no texto das questões.
-5. SÍMBOLO DE MOEDA (R$): NUNCA use "R$" diretamente no texto. SEMPRE escape o cifrão usando DUAS barras invertidas no JSON: "R\\\\$".
-6. OPÇÕES DE RESPOSTA: No array 'options', forneça APENAS o texto da opção, SEM o prefixo da letra (ex: "15" em vez de "A) 15").
+5. SÍMBOLO DE MOEDA (R$): NUNCA use "R$" diretamente. SEMPRE escape o cifrão usando DUAS barras invertidas no JSON: "R\\\\$".
+6. OPÇÕES DE RESPOSTA: No array 'options', forneça APENAS o texto da opção, SEM o prefixo da letra.
 
 REGRAS DE CONTEÚDO E ESTRUTURA:
 1. GABARITO RANDOMIZADO: Garanta que as respostas corretas das questões de múltipla escolha estejam distribuídas aleatoriamente.
 2. PROGRESSÃO DE DIFICULDADE: As questões devem seguir a ordem: Fácil -> Médio -> Difícil.
 3. CONTEXTUALIZAÇÃO: Verifique se os contextos de ${localContextName} são válidos e não repetitivos.
-4. PROPORÇÃO DE TIPOS DE QUESTÃO: Ajuste a prova para que exatamente 20% das questões sejam OBJETIVAS (múltipla escolha) e 80% sejam ABERTAS/DISCURSIVAS (sem opções).
+4. PROPORÇÃO DE TIPOS DE QUESTÃO: Mantenha os tipos de questão do lote (objetivas vs abertas) conforme recebido.
 
-REGRAS DE CONCISÃO CRÍTICAS (OBRIGATÓRIO PARA EVITAR LIMITE DE TOKENS EM PROVEDORES DE FALLBACK):
+REGRAS DE CONCISÃO CRÍTICAS:
 1. TEXTO DOS ENUNCIADOS (text): Mantenha-os diretos, com no máximo 2 sentenças.
 2. EXPLICAÇÃO (explanation): Mantenha a resolução ultra-curta (máximo de 15 palavras).
 3. METADATA: Use nomes de "unidadeTematica" e "objetoConhecimento" curtos.
@@ -714,19 +781,19 @@ O relatório de QA deve ser formatado em Markdown e conter as seguintes seções
 
 Seu retorno DEVE ser um objeto JSON estrito com esta estrutura:
 {
-  "qaReport": "Relatório em markdown",
+  "qaReport": "Relatório em markdown para este lote",
   "correctedExam": {
     "questions": [
       {
-        "id": 1,
-        "type": "direta", // ou "contextualizada"
+        "id": ${currentStart},
+        "type": "direta",
         "text": "Texto do enunciado com LaTeX",
         "options": ["Texto Opção A", "Texto Opção B", "Texto Opção C", "Texto Opção D"], // vazio [] se for aberta
         "answer": "Resposta correta",
         "explanation": "Explicação/resolução passo a passo",
         "metadata": {
           "habilidadeIgarassu": "EF07MA02-IGPE",
-          "nivelComplexidade": "Fácil", // "Fácil", "Médio" ou "Difícil"
+          "nivelComplexidade": "Fácil",
           "unidadeTematica": "Números",
           "objetoConhecimento": "Inteiros"
         }
@@ -735,79 +802,95 @@ Seu retorno DEVE ser um objeto JSON estrito com esta estrutura:
   }
 }`;
 
-  const prompt = `Prova Original (JSON):
-${JSON.stringify(originalExam, null, 2)}
+    const prompt = `Lote de Questões Originais para QA (Questões ${currentStart} a ${currentEnd}):
+${JSON.stringify(batchExam, null, 2)}
 
-Por favor, analise a prova acima e retorne um objeto JSON contendo o relatório de QA (em Markdown) e a prova corrigida.`;
+Por favor, analise as questões deste lote e retorne o objeto JSON contendo o relatório de QA (em Markdown) e as questões corrigidas.`;
 
-  try {
-    const config: GenerateContentParameters = {
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.2,
-        maxOutputTokens: 8192,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            qaReport: { type: Type.STRING, description: "Relatório de QA em Markdown" },
-            correctedExam: {
-              type: Type.OBJECT,
-              properties: {
-                questions: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      id: { type: Type.INTEGER },
-                      type: { type: Type.STRING },
-                      text: { type: Type.STRING },
-                      options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      answer: { type: Type.STRING },
-                      explanation: { type: Type.STRING },
-                      metadata: {
-                        type: Type.OBJECT,
-                        properties: {
-                          habilidadeIgarassu: { type: Type.STRING },
-                          descritorMatrizLuz: { type: Type.STRING },
-                          nivelComplexidade: { type: Type.STRING },
-                          unidadeTematica: { type: Type.STRING },
-                          objetoConhecimento: { type: Type.STRING }
-                        },
-                        required: ["nivelComplexidade", "unidadeTematica", "objetoConhecimento"]
-                      }
-                    },
-                    required: ["id", "type", "text", "answer", "explanation", "metadata"]
+    try {
+      const config: GenerateContentParameters = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0.2,
+          maxOutputTokens: 4096,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              qaReport: { type: Type.STRING, description: "Relatório de QA em Markdown" },
+              correctedExam: {
+                type: Type.OBJECT,
+                properties: {
+                  questions: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        id: { type: Type.INTEGER },
+                        type: { type: Type.STRING },
+                        text: { type: Type.STRING },
+                        options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        answer: { type: Type.STRING },
+                        explanation: { type: Type.STRING },
+                        metadata: {
+                          type: Type.OBJECT,
+                          properties: {
+                            habilidadeIgarassu: { type: Type.STRING },
+                            descritorMatrizLuz: { type: Type.STRING },
+                            nivelComplexidade: { type: Type.STRING },
+                            unidadeTematica: { type: Type.STRING },
+                            objetoConhecimento: { type: Type.STRING }
+                          },
+                          required: ["nivelComplexidade", "unidadeTematica", "objetoConhecimento"]
+                        }
+                      },
+                      required: ["id", "type", "text", "answer", "explanation", "metadata"]
+                    }
                   }
-                }
-              },
-              required: ["questions"]
-            }
-          },
-          required: ["qaReport", "correctedExam"]
-        }
-      },
-    };
+                },
+                required: ["questions"]
+              }
+            },
+            required: ["qaReport", "correctedExam"]
+          }
+        },
+      };
 
-    const result = await withFallback(
-      config,
-      systemInstruction,
-      prompt,
-      (text) => parseJSONWithFallback<QAResult>(text),
-      onRetry
-    );
-    return result;
-  } catch (error: any) {
-    console.error("Erro em runQAAndCorrect:", error);
-    if (error instanceof RetryError) {
-      throw error;
+      const batchResult = await withFallback(
+        config,
+        systemInstruction,
+        prompt,
+        (text) => parseJSONWithFallback<QAResult>(text),
+        onRetry
+      );
+
+      const batchCorrected = batchResult.correctedExam?.questions || [];
+      
+      // Ensure IDs remain corrected sequence
+      batchCorrected.forEach((q, idx) => {
+        q.id = currentStart + idx;
+      });
+
+      allCorrectedQuestions = allCorrectedQuestions.concat(batchCorrected);
+      
+      const formattedReport = `### Relatório de QA - Lote ${currentBatchNum} (Questões ${currentStart} a ${currentEnd})\n\n${batchResult.qaReport || 'Sem relatório.'}`;
+      allReports.push(formattedReport);
+
+    } catch (batchError: any) {
+      console.error(`Erro no QA do lote ${currentStart} a ${currentEnd}:`, batchError);
+      // Fallback: keep original questions for this batch if QA fails
+      allCorrectedQuestions = allCorrectedQuestions.concat(batchQuestions);
+      allReports.push(`### Relatório de QA - Lote ${currentBatchNum} (Questões ${currentStart} a ${currentEnd})\n\n⚠️ O Controle de Qualidade para este lote falhou e as questões originais foram mantidas.\n\nDetalhe: ${batchError?.message || batchError}`);
     }
-    const errorString = (error?.message || JSON.stringify(error)).toUpperCase();
-    if (errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('QUOTA')) {
-      throw new Error("Limite de cota excedido durante a análise de qualidade. Por favor, aguarde um momento.");
-    }
-    throw new Error(`Falha ao gerar o relatório de QA e corrigir a prova: ${error?.message || 'Erro desconhecido'}`);
   }
+
+  const finalReport = `## Relatório de QA Consolidado (${questions.length} Questões)\n\nEste relatório foi unificado a partir das análises em lotes para evitar limitações de timeout e cota.\n\n` + allReports.join('\n\n---\n\n');
+
+  return {
+    qaReport: finalReport,
+    correctedExam: { questions: allCorrectedQuestions }
+  };
 }
+
