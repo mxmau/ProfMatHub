@@ -401,7 +401,7 @@ async function withFallback<T>(
     throw new RetryError(
       'Todos os provedores falharam. Por favor, revise as chaves de API configuradas no painel do Netlify ou aguarde alguns minutos.',
       [
-        `Gemini (2.5-Flash-Preview): ${geminiErrorMsg}`,
+        `Gemini (2.5-Flash): ${geminiErrorMsg}`,
         `NVIDIA (${NVIDIA_MODEL}): ${NVIDIA_API_KEY ? `falhou (${nvidiaErrorMsg})` : 'não configurado'}`,
         `Groq (Llama-3.3-70B): ${GROQ_API_KEY ? `falhou (${groqErrorMsg})` : 'não configurado'}`,
         `OpenRouter (${OPENROUTER_MODEL}): ${OPENROUTER_API_KEY ? `falhou (${openrouterErrorMsg})` : 'não configurado'}`,
@@ -457,7 +457,17 @@ function parseJSONWithFallback<T>(text: string): T {
     return JSON.parse(text) as T;
   } catch (error) {
     console.warn("Failed to parse JSON directly, attempting to sanitize...");
-    let sanitized = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    
+    // Extremely robust extraction between first '{' and last '}'
+    let sanitized = text.trim();
+    const firstBrace = sanitized.indexOf('{');
+    const lastBrace = sanitized.lastIndexOf('}');
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      sanitized = sanitized.slice(firstBrace, lastBrace + 1);
+    } else {
+      sanitized = sanitized.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    }
     
     try {
       return JSON.parse(sanitized) as T;
@@ -590,7 +600,7 @@ Se a questão for de múltipla escolha, forneça exatamente 4 opções no array 
 
   try {
     const config: GenerateContentParameters = {
-      model: 'gemini-2.5-flash-preview-05-20',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         systemInstruction,
@@ -732,7 +742,7 @@ Por favor, analise a prova acima e retorne um objeto JSON contendo o relatório 
 
   try {
     const config: GenerateContentParameters = {
-      model: 'gemini-2.5-flash-preview-05-20',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         systemInstruction,
