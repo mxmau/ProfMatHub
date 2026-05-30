@@ -121,7 +121,11 @@ const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct';
 async function callNvidia(systemPrompt: string, userPrompt: string): Promise<string> {
   if (!NVIDIA_API_KEY) throw new Error('NVIDIA_API_KEY não configurada');
   
-  const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+  // Use relative proxy path in browser to bypass CORS restrictions
+  const isBrowser = typeof window !== 'undefined';
+  const apiEndpoint = isBrowser ? '/api/nvidia/chat/completions' : 'https://integrate.api.nvidia.com/v1/chat/completions';
+  
+  const response = await fetch(apiEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
