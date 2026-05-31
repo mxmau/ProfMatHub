@@ -99,6 +99,10 @@ function isProviderCoolingDown(provider: ProviderName): boolean {
   return (providerCooldownUntil[provider] || 0) > Date.now();
 }
 
+function logProviderSuccess(provider: ProviderName, detail: string): void {
+  console.info(`[ProfMatHub IA] ${provider} respondeu com sucesso: ${detail}`);
+}
+
 function getGenerationBatchSize(mode: GenerationMode = 'economico'): number {
   if (mode === 'completo') return 3;
   if (mode === 'rapido') return 4;
@@ -529,7 +533,9 @@ async function withFallbackSmart<T>(
     setCurrentProvider('gemini');
     return await withRetry(async () => {
       const response = await getAI().models.generateContent(geminiConfig);
-      return parseResult(response.text || '{}');
+      const parsed = parseResult(response.text || '{}');
+      logProviderSuccess('gemini', 'conteudo gerado');
+      return parsed;
     }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
   } catch (error: any) {
     markProviderFailure('gemini', error);
@@ -548,6 +554,7 @@ async function withFallbackSmart<T>(
         if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
           throw new Error('Groq retornou lista de questoes vazia');
         }
+        logProviderSuccess('groq', `${anyResult?.questions?.length || 'conteudo'} item(ns)`);
         return parsed;
       }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
     } catch (error: any) {
@@ -566,7 +573,10 @@ async function withFallbackSmart<T>(
       setCurrentProvider('openrouter');
       return await withRetry(async () => {
         const text = await callOpenRouter(systemPrompt, userPrompt);
-        return parseResult(text);
+        const parsed = parseResult(text);
+        const anyResult = parsed as any;
+        logProviderSuccess('openrouter', `${anyResult?.questions?.length || 'conteudo'} item(ns)`);
+        return parsed;
       }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
     } catch (error: any) {
       markProviderFailure('openrouter', error);
@@ -589,6 +599,7 @@ async function withFallbackSmart<T>(
         if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
           throw new Error('NVIDIA retornou lista de questoes vazia');
         }
+        logProviderSuccess('nvidia', `${anyResult?.questions?.length || 'conteudo'} item(ns)`);
         return parsed;
       }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
     } catch (error: any) {
@@ -609,7 +620,9 @@ async function withFallbackSmart<T>(
     const flashConfig = { ...geminiConfig, model: 'gemini-1.5-flash' };
     return await withRetry(async () => {
       const response = await getAI().models.generateContent(flashConfig);
-      return parseResult(response.text || '{}');
+      const parsed = parseResult(response.text || '{}');
+      logProviderSuccess('gemini-flash', 'conteudo gerado');
+      return parsed;
     }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
   } catch (error: any) {
     markProviderFailure('gemini-flash', error);
@@ -1691,6 +1704,7 @@ export async function replaceSelectedQuestions(
     try {
       const generatedByApi = await generateReplacementQuestionsWithProviders(originalExam, params, selectedQuestions, onRetry);
       generatedByApi.forEach(question => apiReplacements.set(question.id, question));
+      console.info(`[ProfMatHub IA] Substituicao por API retornou ${apiReplacements.size}/${selectedQuestions.length} questoes.`);
       if (apiReplacements.size < selectedQuestions.length) {
         onRetry?.(2, 2, `APIs retornaram ${apiReplacements.size}/${selectedQuestions.length}; completando o restante localmente`);
       }
