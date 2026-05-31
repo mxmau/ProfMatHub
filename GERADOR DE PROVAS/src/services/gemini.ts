@@ -1,7 +1,13 @@
 import { GoogleGenAI, Type, GenerateContentParameters } from '@google/genai';
 
 // --- PROVIDER MANAGEMENT ---
-type ProviderName = 'gemini' | 'nvidia' | 'groq' | 'openrouter' | 'gemini-flash';
+type ProviderName = 'gemini' | 'groq' | 'openrouter' | 'nvidia' | 'gemini-flash';
+export type GenerationMode = 'economico' | 'rapido' | 'completo';
+
+export interface GenerationOptions {
+  mode?: GenerationMode;
+  resumeDraft?: boolean;
+}
 
 interface ProviderStatus {
   name: ProviderName;
@@ -12,6 +18,21 @@ interface ProviderStatus {
 
 let currentProvider: ProviderName = 'gemini';
 const providerListeners: Array<(provider: ProviderName) => void> = [];
+const providerCooldownUntil: Partial<Record<ProviderName, number>> = {};
+
+class ProviderApiError extends Error {
+  public status?: number;
+  public retryAfterMs?: number;
+  public body?: string;
+
+  constructor(message: string, status?: number, retryAfterMs?: number, body?: string) {
+    super(message);
+    this.name = 'ProviderApiError';
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+    this.body = body;
+  }
+}
 
 export function onProviderChange(fn: (provider: ProviderName) => void) {
   providerListeners.push(fn);
@@ -23,6 +44,58 @@ export function getCurrentProvider(): ProviderName { return currentProvider; }
 function setCurrentProvider(p: ProviderName) {
   currentProvider = p;
   providerListeners.forEach(fn => fn(p));
+}
+
+function getRetryAfterMs(response: Response): number | undefined {
+  const retryAfter = response.headers.get('retry-after');
+  if (!retryAfter) return undefined;
+
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds)) return Math.max(1000, seconds * 1000);
+
+  const retryDate = Date.parse(retryAfter);
+  if (Number.isFinite(retryDate)) return Math.max(1000, retryDate - Date.now());
+
+  return undefined;
+}
+
+function isQuotaLikeError(error: any): boolean {
+  const errorString = `${error?.message || ''} ${error?.body || ''} ${JSON.stringify(error, Object.getOwnPropertyNames(error || {}))}`.toUpperCase();
+  return (
+    error?.status === 429 ||
+    error?.code === 429 ||
+    errorString.includes('429') ||
+    errorString.includes('RESOURCE_EXHAUSTED') ||
+    errorString.includes('QUOTA') ||
+    errorString.includes('LIMITE DE COTA') ||
+    errorString.includes('LIMITE DIARIO') ||
+    errorString.includes('LIMITE DIÁRIO') ||
+    errorString.includes('RATE LIMIT')
+  );
+}
+
+function markProviderCooldown(provider: ProviderName, error: any): void {
+  if (!isQuotaLikeError(error)) return;
+
+  const retryAfterMs = error?.retryAfterMs;
+  const fallbackMs = `${error?.message || ''} ${error?.body || ''}`.toUpperCase().includes('DAILY')
+    ? 60 * 60 * 1000
+    : 5 * 60 * 1000;
+
+  providerCooldownUntil[provider] = Date.now() + (retryAfterMs || fallbackMs);
+}
+
+function isProviderCoolingDown(provider: ProviderName): boolean {
+  return (providerCooldownUntil[provider] || 0) > Date.now();
+}
+
+function getGenerationBatchSize(mode: GenerationMode = 'economico'): number {
+  if (mode === 'economico') return 4;
+  return 5;
+}
+
+function getQABatchSize(mode: GenerationMode = 'economico'): number {
+  return 5;
 }
 
 // --- GEMINI INSTANCES ---
@@ -67,7 +140,7 @@ async function callGroq(systemPrompt: string, userPrompt: string): Promise<strin
 
   if (!response.ok) {
     const errBody = await response.text();
-    throw new Error(`Groq API error ${response.status}: ${errBody}`);
+    throw new ProviderApiError(`Groq API error ${response.status}: ${errBody}`, response.status, getRetryAfterMs(response), errBody);
   }
 
   const data = await response.json();
@@ -107,7 +180,7 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string): Promise
 
   if (!response.ok) {
     const errBody = await response.text();
-    throw new Error(`OpenRouter API error ${response.status}: ${errBody}`);
+    throw new ProviderApiError(`OpenRouter API error ${response.status}: ${errBody}`, response.status, getRetryAfterMs(response), errBody);
   }
 
   const data = await response.json();
@@ -144,7 +217,7 @@ async function callNvidia(systemPrompt: string, userPrompt: string): Promise<str
 
   if (!response.ok) {
     const errBody = await response.text();
-    throw new Error(`NVIDIA API error ${response.status}: ${errBody}`);
+    throw new ProviderApiError(`NVIDIA API error ${response.status}: ${errBody}`, response.status, getRetryAfterMs(response), errBody);
   }
 
   const data = await response.json();
@@ -408,6 +481,122 @@ async function withFallback<T>(
   }
 }
 
+async function withFallbackSmart<T>(
+  geminiConfig: GenerateContentParameters,
+  systemPrompt: string,
+  userPrompt: string,
+  parseResult: (text: string) => T,
+  onRetry?: (attempt: number, maxRetries: number, reason: string) => void
+): Promise<T> {
+  let geminiErrorMsg = '';
+  let groqErrorMsg = '';
+  let openrouterErrorMsg = '';
+  let nvidiaErrorMsg = '';
+  let flashErrorMsg = '';
+
+  try {
+    if (isProviderCoolingDown('gemini')) throw new Error('Gemini em pausa temporaria por limite recente.');
+    setCurrentProvider('gemini');
+    return await withRetry(async () => {
+      const response = await getAI().models.generateContent(geminiConfig);
+      return parseResult(response.text || '{}');
+    }, 3, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`));
+  } catch (error: any) {
+    markProviderCooldown('gemini', error);
+    geminiErrorMsg = error?.message || String(error);
+    console.warn('Gemini primary failed, trying Groq fallback...', geminiErrorMsg);
+    onRetry?.(1, 5, 'Alternando para Groq (Gemini indisponivel)');
+  }
+
+  if (GROQ_API_KEY && !isProviderCoolingDown('groq')) {
+    try {
+      setCurrentProvider('groq');
+      return await withRetry(async () => {
+        const text = await callGroq(systemPrompt, userPrompt);
+        const parsed = parseResult(text);
+        const anyResult = parsed as any;
+        if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
+          throw new Error('Groq retornou lista de questoes vazia');
+        }
+        return parsed;
+      }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`));
+    } catch (error: any) {
+      markProviderCooldown('groq', error);
+      groqErrorMsg = error?.message || String(error);
+      console.warn('Groq fallback failed, trying OpenRouter...', groqErrorMsg);
+      onRetry?.(2, 5, 'Alternando para OpenRouter (Groq falhou)');
+    }
+  } else {
+    groqErrorMsg = GROQ_API_KEY ? 'Groq em pausa temporaria por limite recente' : 'Chave GROQ_API_KEY nao configurada no Netlify';
+    onRetry?.(2, 5, 'Groq indisponivel, tentando OpenRouter');
+  }
+
+  if (OPENROUTER_API_KEY && !isProviderCoolingDown('openrouter')) {
+    try {
+      setCurrentProvider('openrouter');
+      return await withRetry(async () => {
+        const text = await callOpenRouter(systemPrompt, userPrompt);
+        return parseResult(text);
+      }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`));
+    } catch (error: any) {
+      markProviderCooldown('openrouter', error);
+      openrouterErrorMsg = error?.message || String(error);
+      console.warn('OpenRouter fallback failed, trying NVIDIA...', openrouterErrorMsg);
+      onRetry?.(3, 5, 'Alternando para NVIDIA (OpenRouter falhou)');
+    }
+  } else {
+    openrouterErrorMsg = OPENROUTER_API_KEY ? 'OpenRouter em pausa temporaria por limite recente' : 'Chave OPENROUTER_API_KEY nao configurada no Netlify';
+    onRetry?.(3, 5, 'OpenRouter indisponivel, tentando NVIDIA');
+  }
+
+  if (NVIDIA_API_KEY && !isProviderCoolingDown('nvidia')) {
+    try {
+      setCurrentProvider('nvidia');
+      return await withRetry(async () => {
+        const text = await callNvidia(systemPrompt, userPrompt);
+        const parsed = parseResult(text);
+        const anyResult = parsed as any;
+        if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
+          throw new Error('NVIDIA retornou lista de questoes vazia');
+        }
+        return parsed;
+      }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`));
+    } catch (error: any) {
+      markProviderCooldown('nvidia', error);
+      nvidiaErrorMsg = error?.message || String(error);
+      console.warn('NVIDIA fallback failed, trying Gemini Flash...', nvidiaErrorMsg);
+      onRetry?.(4, 5, 'Alternando para Gemini Flash (NVIDIA falhou)');
+    }
+  } else {
+    nvidiaErrorMsg = NVIDIA_API_KEY ? 'NVIDIA em pausa temporaria por limite recente' : 'Chave NVIDIA_API_KEY nao configurada no Netlify';
+    onRetry?.(4, 5, 'NVIDIA indisponivel, tentando Gemini Flash');
+  }
+
+  try {
+    if (isProviderCoolingDown('gemini-flash')) throw new Error('Gemini Flash em pausa temporaria por limite recente.');
+    setCurrentProvider('gemini-flash');
+    const flashConfig = { ...geminiConfig, model: 'gemini-1.5-flash' };
+    return await withRetry(async () => {
+      const response = await getAI().models.generateContent(flashConfig);
+      return parseResult(response.text || '{}');
+    }, 3, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`));
+  } catch (error: any) {
+    markProviderCooldown('gemini-flash', error);
+    flashErrorMsg = error?.message || String(error);
+    setCurrentProvider('gemini');
+    throw new RetryError(
+      'Todos os provedores falharam. Revise as chaves no Netlify ou aguarde alguns minutos antes de tentar novamente.',
+      [
+        `Gemini (2.5-Flash): ${geminiErrorMsg}`,
+        `Groq (Llama-3.3-70B): ${GROQ_API_KEY ? `falhou (${groqErrorMsg})` : 'nao configurado'}`,
+        `OpenRouter (${OPENROUTER_MODEL}): ${OPENROUTER_API_KEY ? `falhou (${openrouterErrorMsg})` : 'nao configurado'}`,
+        `NVIDIA (${NVIDIA_MODEL}): ${NVIDIA_API_KEY ? `falhou (${nvidiaErrorMsg})` : 'nao configurado'}`,
+        `Gemini (1.5-Flash): ${flashErrorMsg}`
+      ]
+    );
+  }
+}
+
 export interface ExamParams {
   school: string;
   customSchool?: string;
@@ -447,6 +636,67 @@ export interface ExamQuestion {
 
 export interface ExamData {
   questions: ExamQuestion[];
+}
+
+const GENERATION_DRAFT_KEY = 'ais_exam_generation_draft_v1';
+
+function buildDraftSignature(params: ExamParams): string {
+  return JSON.stringify({
+    subject: params.subject,
+    grade: params.grade,
+    curriculum: params.curriculum,
+    topics: params.topics,
+    questionCount: params.questionCount,
+    difficulty: params.difficulty,
+    context: params.context,
+  });
+}
+
+function loadGenerationDraft(params: ExamParams): ExamQuestion[] {
+  if (typeof localStorage === 'undefined') return [];
+
+  try {
+    const raw = localStorage.getItem(GENERATION_DRAFT_KEY);
+    if (!raw) return [];
+
+    const draft = JSON.parse(raw) as { signature: string; questions: ExamQuestion[] };
+    if (draft.signature !== buildDraftSignature(params)) return [];
+
+    return (draft.questions || []).slice(0, params.questionCount);
+  } catch (error) {
+    console.warn('Nao foi possivel ler o rascunho local da prova:', error);
+    return [];
+  }
+}
+
+function saveGenerationDraft(params: ExamParams, questions: ExamQuestion[]): void {
+  if (typeof localStorage === 'undefined') return;
+
+  try {
+    localStorage.setItem(GENERATION_DRAFT_KEY, JSON.stringify({
+      signature: buildDraftSignature(params),
+      timestamp: Date.now(),
+      questions,
+    }));
+  } catch (error) {
+    console.warn('Nao foi possivel salvar o rascunho local da prova:', error);
+  }
+}
+
+function clearGenerationDraft(params: ExamParams): void {
+  if (typeof localStorage === 'undefined') return;
+
+  try {
+    const raw = localStorage.getItem(GENERATION_DRAFT_KEY);
+    if (!raw) return;
+
+    const draft = JSON.parse(raw) as { signature: string };
+    if (draft.signature === buildDraftSignature(params)) {
+      localStorage.removeItem(GENERATION_DRAFT_KEY);
+    }
+  } catch (error) {
+    console.warn('Nao foi possivel limpar o rascunho local da prova:', error);
+  }
 }
 
 function parseJSONWithFallback<T>(text: string): T {
@@ -519,7 +769,7 @@ function parseJSONWithFallback<T>(text: string): T {
   }
 }
 
-export async function generateExam(params: ExamParams, onRetry?: (attempt: number, maxRetries: number, reason: string) => void): Promise<ExamData> {
+export async function generateExam(params: ExamParams, onRetry?: (attempt: number, maxRetries: number, reason: string) => void, options: GenerationOptions = {}): Promise<ExamData> {
   let localContext = '';
   let bankOfContexts = '';
 
@@ -540,12 +790,24 @@ export async function generateExam(params: ExamParams, onRetry?: (attempt: numbe
 
   let generatedObjective = 0;
   let generatedOpen = 0;
-  let allQuestions: ExamQuestion[] = [];
+  let allQuestions: ExamQuestion[] = options.resumeDraft === false ? [] : loadGenerationDraft(params);
   
-  const batchSize = 5;
+  allQuestions.forEach(q => {
+    if (q.options && q.options.length > 0) {
+      generatedObjective++;
+    } else {
+      generatedOpen++;
+    }
+  });
+
+  const batchSize = getGenerationBatchSize(options.mode);
   const totalBatches = Math.ceil(totalQuestions / batchSize);
   
-  for (let startId = 1; startId <= totalQuestions; startId += batchSize) {
+  if (allQuestions.length > 0) {
+    onRetry?.(1, totalBatches, `Retomando rascunho local com ${allQuestions.length} questoes prontas`);
+  }
+
+  for (let startId = allQuestions.length + 1; startId <= totalQuestions; startId += batchSize) {
     const currentBatchSize = Math.min(batchSize, totalQuestions - startId + 1);
     const currentBatchNum = Math.ceil(startId / batchSize);
     
@@ -681,7 +943,7 @@ ${previousQuestionsSummary}`;
         },
       };
 
-      const batchResult = await withFallback(
+      const batchResult = await withFallbackSmart(
         config,
         systemInstruction,
         prompt,
@@ -690,6 +952,9 @@ ${previousQuestionsSummary}`;
       );
 
       const batchQuestions = batchResult.questions || [];
+      if (batchQuestions.length !== currentBatchSize) {
+        throw new Error(`O provedor retornou ${batchQuestions.length} questoes, mas este lote precisa de ${currentBatchSize}.`);
+      }
       
       // Ensure IDs are corrected and match the expected startId sequence
       batchQuestions.forEach((q, idx) => {
@@ -697,6 +962,7 @@ ${previousQuestionsSummary}`;
       });
 
       allQuestions = allQuestions.concat(batchQuestions);
+      saveGenerationDraft(params, allQuestions);
       
       // Update counters
       batchQuestions.forEach(q => {
@@ -713,6 +979,7 @@ ${previousQuestionsSummary}`;
     }
   }
 
+  clearGenerationDraft(params);
   return { questions: allQuestions };
 }
 
@@ -721,7 +988,7 @@ export interface QAResult {
   correctedExam: ExamData;
 }
 
-export async function runQAAndCorrect(originalExam: ExamData, params: ExamParams, onRetry?: (attempt: number, maxRetries: number, reason: string) => void): Promise<QAResult> {
+export async function runQAAndCorrect(originalExam: ExamData, params: ExamParams, onRetry?: (attempt: number, maxRetries: number, reason: string) => void, options: GenerationOptions = {}): Promise<QAResult> {
   let localContextName = '';
   if (params.curriculum === 'Matriz da Luz') {
     localContextName = 'São Lourenço da Mata/PE';
@@ -732,7 +999,7 @@ export async function runQAAndCorrect(originalExam: ExamData, params: ExamParams
   }
 
   const questions = originalExam.questions || [];
-  const batchSize = 10;
+  const batchSize = getQABatchSize(options.mode);
   const totalBatches = Math.ceil(questions.length / batchSize);
   let allCorrectedQuestions: ExamQuestion[] = [];
   let allReports: string[] = [];
@@ -858,7 +1125,7 @@ Por favor, analise as questões deste lote e retorne o objeto JSON contendo o re
         },
       };
 
-      const batchResult = await withFallback(
+      const batchResult = await withFallbackSmart(
         config,
         systemInstruction,
         prompt,
