@@ -704,12 +704,14 @@ export default function App() {
                           activeProvider === 'nvidia' ? 'text-violet-600' :
                           activeProvider === 'groq' ? 'text-green-500' :
                           activeProvider === 'openrouter' ? 'text-orange-500' :
+                          activeProvider === 'local' ? 'text-slate-600' :
                           'text-purple-500'
                         }`}>
                           {activeProvider === 'gemini' ? '🔵 Gemini' :
                            activeProvider === 'nvidia' ? '🟣 NVIDIA Pro' :
                            activeProvider === 'groq' ? '🟢 Groq (Llama)' :
                            activeProvider === 'openrouter' ? '🟠 OpenRouter (Llama Free)' :
+                           activeProvider === 'local' ? 'Gerador local' :
                            '⚡ Gemini Flash'}
                         </span>
                       </p>
