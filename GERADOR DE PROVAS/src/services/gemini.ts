@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type, GenerateContentParameters } from '@google/genai';
 
 // --- PROVIDER MANAGEMENT ---
-type ProviderName = 'gemini' | 'groq' | 'openrouter' | 'nvidia' | 'gemini-flash';
+type ProviderName = 'gemini' | 'groq' | 'openrouter' | 'nvidia' | 'gemini-flash' | 'local';
 export type GenerationMode = 'economico' | 'rapido' | 'completo';
 
 export interface GenerationOptions {
@@ -190,6 +190,10 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string): Promise
 // --- NVIDIA API (OpenAI-compatible premium NIM models) ---
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || '';
 const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct';
+
+function hasRemoteProviderConfigured(): boolean {
+  return Boolean(process.env.GEMINI_API_KEY || GROQ_API_KEY || OPENROUTER_API_KEY || NVIDIA_API_KEY);
+}
 
 async function callNvidia(systemPrompt: string, userPrompt: string): Promise<string> {
   if (!NVIDIA_API_KEY) throw new Error('NVIDIA_API_KEY não configurada');
@@ -495,6 +499,7 @@ async function withFallbackSmart<T>(
   let flashErrorMsg = '';
 
   try {
+    if (!process.env.GEMINI_API_KEY) throw new Error('Chave GEMINI_API_KEY nao configurada.');
     if (isProviderCoolingDown('gemini')) throw new Error('Gemini em pausa temporaria por limite recente.');
     setCurrentProvider('gemini');
     return await withRetry(async () => {
@@ -573,6 +578,7 @@ async function withFallbackSmart<T>(
   }
 
   try {
+    if (!process.env.GEMINI_API_KEY) throw new Error('Chave GEMINI_API_KEY nao configurada.');
     if (isProviderCoolingDown('gemini-flash')) throw new Error('Gemini Flash em pausa temporaria por limite recente.');
     setCurrentProvider('gemini-flash');
     const flashConfig = { ...geminiConfig, model: 'gemini-1.5-flash' };
@@ -769,6 +775,125 @@ function parseJSONWithFallback<T>(text: string): T {
   }
 }
 
+function getLocalDifficulty(params: ExamParams, index: number, totalQuestions: number): string {
+  if (params.difficulty && params.difficulty !== 'Mesclado') return params.difficulty;
+
+  const ratio = index / Math.max(1, totalQuestions);
+  if (ratio < 0.34) return 'Facil';
+  if (ratio < 0.67) return 'Medio';
+  return 'Dificil';
+}
+
+function getLocalTopic(params: ExamParams, index: number): { unidadeTematica: string; objetoConhecimento: string } {
+  const requestedTopic = params.topics?.trim();
+  if (requestedTopic) {
+    return {
+      unidadeTematica: 'Matematica',
+      objetoConhecimento: requestedTopic.slice(0, 40)
+    };
+  }
+
+  const topics = [
+    { unidadeTematica: 'Numeros', objetoConhecimento: 'Operacoes' },
+    { unidadeTematica: 'Algebra', objetoConhecimento: 'Sequencias' },
+    { unidadeTematica: 'Geometria', objetoConhecimento: 'Areas' },
+    { unidadeTematica: 'Grandezas', objetoConhecimento: 'Medidas' },
+    { unidadeTematica: 'Probabilidade', objetoConhecimento: 'Tabelas' },
+  ];
+
+  return topics[index % topics.length];
+}
+
+function getReferenceContext(params: ExamParams, index: number): string {
+  if (params.context?.trim()) return params.context.trim();
+
+  const contexts = [
+    'a feira livre de Igarassu organizou barracas por setor e registrou o fluxo de visitantes',
+    'uma turma analisou dados de transporte escolar entre bairros de Igarassu',
+    'estudantes compararam gastos de uma excursao pedagogica ao Sitio Historico',
+    'uma equipe montou uma tabela de desempenho em um simulado no estilo IFPE',
+    'um projeto de horta escolar mediu canteiros retangulares e consumo de agua',
+    'um clube de estudos resolveu um desafio inspirado em concursos de colegio militar',
+    'uma pesquisa no patio da escola registrou preferencias por atividades esportivas',
+    'um grafico no estilo ENEM comparou economia de energia em salas de aula',
+    'uma biblioteca escolar acompanhou emprestimos de livros durante quatro semanas',
+    'um grupo calculou o custo de materiais para uma mostra de matematica',
+  ];
+
+  return contexts[index % contexts.length];
+}
+
+function buildLocalQuestion(params: ExamParams, id: number, totalQuestions: number, objective: boolean): ExamQuestion {
+  const gradeNumber = Number.parseInt(params.grade, 10) || 6;
+  const level = getLocalDifficulty(params, id - 1, totalQuestions);
+  const topic = getLocalTopic(params, id - 1);
+  const context = getReferenceContext(params, id - 1);
+  const base = gradeNumber + id;
+  const factor = level === 'Dificil' ? 4 : level === 'Medio' ? 3 : 2;
+
+  if (objective) {
+    const correctValue = base * factor + id;
+    const options = [
+      correctValue,
+      correctValue + factor,
+      Math.max(1, correctValue - factor),
+      correctValue + factor + id,
+    ];
+    const correctIndex = (id + gradeNumber) % 4;
+    const rotated = options.map((_, idx) => options[(idx - correctIndex + 4) % 4]);
+    const answer = ['A', 'B', 'C', 'D'][correctIndex];
+
+    return {
+      id,
+      type: 'contextualizada',
+      text: `Em ${context}, foram registrados $${base}$ grupos com $${factor}$ itens cada e mais $${id}$ itens avulsos. Qual foi o total registrado?`,
+      options: rotated.map(value => `${value} itens`),
+      answer,
+      explanation: `${base} x ${factor} + ${id} = ${correctValue}.`,
+      metadata: {
+        habilidadeIgarassu: `EF0${Math.min(9, gradeNumber)}MA01-IGPE`,
+        descritorMatrizLuz: 'D01',
+        nivelComplexidade: level,
+        unidadeTematica: topic.unidadeTematica,
+        objetoConhecimento: topic.objetoConhecimento,
+      }
+    };
+  }
+
+  const firstValue = base * factor;
+  const secondValue = id + gradeNumber;
+  const answerValue = firstValue - secondValue;
+
+  return {
+    id,
+    type: id % 2 === 0 ? 'contextualizada' : 'direta',
+    text: `Em ${context}, havia $${firstValue}$ registros e $${secondValue}$ foram revisados. Quantos registros ficaram pendentes?`,
+    options: [],
+    answer: `${answerValue}`,
+    explanation: `${firstValue} - ${secondValue} = ${answerValue}.`,
+    metadata: {
+      habilidadeIgarassu: `EF0${Math.min(9, gradeNumber)}MA02-IGPE`,
+      descritorMatrizLuz: 'D02',
+      nivelComplexidade: level,
+      unidadeTematica: topic.unidadeTematica,
+      objetoConhecimento: topic.objetoConhecimento,
+    }
+  };
+}
+
+function buildLocalQuestionBatch(
+  params: ExamParams,
+  startId: number,
+  count: number,
+  objectiveCount: number,
+  totalQuestions: number
+): ExamQuestion[] {
+  return Array.from({ length: count }, (_, idx) => {
+    const id = startId + idx;
+    return buildLocalQuestion(params, id, totalQuestions, idx < objectiveCount);
+  });
+}
+
 export async function generateExam(params: ExamParams, onRetry?: (attempt: number, maxRetries: number, reason: string) => void, options: GenerationOptions = {}): Promise<ExamData> {
   let localContext = '';
   let bankOfContexts = '';
@@ -896,6 +1021,19 @@ ${previousQuestionsSummary}`;
     onRetry?.(currentBatchNum, totalBatches, `Gerando questões ${startId} a ${startId + currentBatchSize - 1}`);
 
     try {
+      if (!hasRemoteProviderConfigured()) {
+        onRetry?.(currentBatchNum, totalBatches, `Gerando localmente as questoes ${startId} a ${startId + currentBatchSize - 1}`);
+        setCurrentProvider('local');
+
+        const localQuestions = buildLocalQuestionBatch(params, startId, currentBatchSize, batchObjective, totalQuestions);
+        allQuestions = allQuestions.concat(localQuestions);
+        saveGenerationDraft(params, allQuestions);
+
+        generatedObjective += localQuestions.filter(q => q.options && q.options.length > 0).length;
+        generatedOpen += localQuestions.filter(q => !q.options || q.options.length === 0).length;
+        continue;
+      }
+
       const config: GenerateContentParameters = {
         model: 'gemini-2.5-flash',
         contents: prompt,
@@ -951,9 +1089,21 @@ ${previousQuestionsSummary}`;
         onRetry
       );
 
-      const batchQuestions = batchResult.questions || [];
-      if (batchQuestions.length !== currentBatchSize) {
-        throw new Error(`O provedor retornou ${batchQuestions.length} questoes, mas este lote precisa de ${currentBatchSize}.`);
+      let batchQuestions = (batchResult.questions || []).slice(0, currentBatchSize);
+      if (batchQuestions.length < currentBatchSize) {
+        const missingCount = currentBatchSize - batchQuestions.length;
+        const currentObjective = batchQuestions.filter(q => q.options && q.options.length > 0).length;
+        const missingObjective = Math.max(0, batchObjective - currentObjective);
+        console.warn(`Provedor retornou ${batchQuestions.length}/${currentBatchSize} questoes. Completando ${missingCount} questoes localmente.`);
+        onRetry?.(currentBatchNum, totalBatches, `Completando ${missingCount} questoes do lote com gerador local`);
+        setCurrentProvider('local');
+        batchQuestions = batchQuestions.concat(buildLocalQuestionBatch(
+          params,
+          startId + batchQuestions.length,
+          missingCount,
+          missingObjective,
+          totalQuestions
+        ));
       }
       
       // Ensure IDs are corrected and match the expected startId sequence
@@ -974,8 +1124,16 @@ ${previousQuestionsSummary}`;
       });
 
     } catch (batchError: any) {
-      console.error(`Erro ao gerar lote a partir do id ${startId}:`, batchError);
-      throw new Error(`Falha no lote de geração (Questões ${startId} a ${startId + currentBatchSize - 1}): ${batchError?.message || batchError}`);
+      console.warn(`IA indisponivel no lote a partir do id ${startId}. Gerando lote localmente.`, batchError);
+      onRetry?.(currentBatchNum, totalBatches, `IA indisponivel no lote; usando gerador local para as questoes ${startId} a ${startId + currentBatchSize - 1}`);
+      setCurrentProvider('local');
+
+      const localQuestions = buildLocalQuestionBatch(params, startId, currentBatchSize, batchObjective, totalQuestions);
+      allQuestions = allQuestions.concat(localQuestions);
+      saveGenerationDraft(params, allQuestions);
+
+      generatedObjective += localQuestions.filter(q => q.options && q.options.length > 0).length;
+      generatedOpen += localQuestions.filter(q => !q.options || q.options.length === 0).length;
     }
   }
 
