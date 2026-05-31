@@ -62,3 +62,18 @@ export function findSimilarExam(params: ExamParams): StoredExam | null {
   
   return null;
 }
+
+export function findReusableExam(params: ExamParams): StoredExam | null {
+  const exactMatch = findSimilarExam(params);
+  if (exactMatch) return exactMatch;
+
+  const exams = getExamsFromBank();
+  return exams.find(exam => (
+    exam.params.subject === params.subject &&
+    exam.params.grade === params.grade &&
+    exam.params.curriculum === params.curriculum &&
+    exam.params.topics === params.topics &&
+    exam.params.difficulty === params.difficulty &&
+    (exam.examData.questions?.length || 0) >= params.questionCount
+  )) || null;
+}

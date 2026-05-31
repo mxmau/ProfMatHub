@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FileText, Download, Copy, CheckCircle2, Loader2, BookOpen, Settings2, School, Printer, FileDown, ShieldCheck, X, Wand2, History } from 'lucide-react';
 import { generateExam, ExamParams, ExamData, runQAAndCorrect, RetryError, onProviderChange, getCurrentProvider } from './services/gemini';
+import type { GenerationMode } from './services/gemini';
 import { generateLatex, generateDocx } from './utils/generators';
-import { saveExamToBank, findSimilarExam, getExamsFromBank, StoredExam } from './utils/storage';
+import { saveExamToBank, findSimilarExam, findReusableExam, getExamsFromBank, StoredExam } from './utils/storage';
 import Markdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -61,6 +62,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [lastParams, setLastParams] = useState<ExamParams | null>(null);
   const [activeProvider, setActiveProvider] = useState<string>(getCurrentProvider());
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('economico');
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +114,7 @@ export default function App() {
     setPendingCorrectedExam(null);
     setRetryMessage('');
     try {
-      const result = await runQAAndCorrect(examData, lastParams, handleRetry);
+      const result = await runQAAndCorrect(examData, lastParams, handleRetry, { mode: generationMode });
       setQaReport(result.qaReport);
       setPendingCorrectedExam(result.correctedExam);
     } catch (err: any) {
@@ -157,7 +159,7 @@ export default function App() {
     
     try {
       // Check local cache first
-      const cachedExam = findSimilarExam(params);
+      const cachedExam = generationMode === 'economico' ? findReusableExam(params) : findSimilarExam(params);
       let data: ExamData;
       let localQaReport: string | null = null;
       
@@ -165,21 +167,25 @@ export default function App() {
         setGenerationStep('Recuperando prova do banco local...');
         // Simulate a small delay for UX
         await new Promise(resolve => setTimeout(resolve, 500));
-        data = cachedExam.examData;
+        data = {
+          questions: (cachedExam.examData.questions || []).slice(0, params.questionCount)
+        };
       } else {
         setGenerationStep('Elaborando questões contextualizadas...');
-        data = await generateExam(params, handleRetry);
+        data = await generateExam(params, handleRetry, { mode: generationMode });
         
-        setGenerationStep('Executando Controle de Qualidade (QA)...');
-        try {
-          const qaResult = await runQAAndCorrect(data, params, handleRetry);
-          localQaReport = qaResult.qaReport;
-          setQaReport(qaResult.qaReport);
-          setPendingCorrectedExam(qaResult.correctedExam);
-        } catch (qaErr: any) {
-          console.error("QA failed:", qaErr);
-          localQaReport = "O Controle de Qualidade falhou ou excedeu o tempo limite. A prova original foi mantida.\n\n" + (qaErr.message || "");
-          setQaReport(localQaReport);
+        if (generationMode === 'completo') {
+          setGenerationStep('Executando Controle de Qualidade (QA)...');
+          try {
+            const qaResult = await runQAAndCorrect(data, params, handleRetry, { mode: generationMode });
+            localQaReport = qaResult.qaReport;
+            setQaReport(qaResult.qaReport);
+            setPendingCorrectedExam(qaResult.correctedExam);
+          } catch (qaErr: any) {
+            console.error("QA failed:", qaErr);
+            localQaReport = "O Controle de Qualidade falhou ou excedeu o tempo limite. A prova original foi mantida.\n\n" + (qaErr.message || "");
+            setQaReport(localQaReport);
+          }
         }
         
         saveExamToBank(params, data);
@@ -543,6 +549,19 @@ export default function App() {
                   <label htmlFor="includeMap" className="text-sm font-medium text-slate-700">
                     Incluir Gabarito e Mapa Pedagógico
                   </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Modo de Geração</label>
+                  <select
+                    className="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50 border p-2.5 text-sm"
+                    value={generationMode}
+                    onChange={e => setGenerationMode(e.target.value as GenerationMode)}
+                  >
+                    <option value="economico">Econômico: usa cache e não roda QA automático</option>
+                    <option value="rapido">Rápido: gera do zero sem QA automático</option>
+                    <option value="completo">Completo: gera e roda QA em lotes pequenos</option>
+                  </select>
                 </div>
 
                 <button
