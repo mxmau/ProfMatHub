@@ -9,10 +9,15 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
+const stripAccentsForMath = (value: string) => (
+  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ç/g, 'c').replace(/Ç/g, 'C')
+);
+
 const formatMarkdownText = (text: string) => {
   if (!text) return '';
   return text
     .replace(/\\vspace\{[^}]+\}/g, '') // Remove \vspace
+    .replace(/\$([^$]+)\$/g, (_, content) => `$${stripAccentsForMath(content)}$`)
     .replace(/(?<!\\)R\$/g, 'R\\$'); // Escape R$ to prevent math mode breaking
 };
 
