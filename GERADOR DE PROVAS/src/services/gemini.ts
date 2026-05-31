@@ -85,6 +85,15 @@ function markProviderCooldown(provider: ProviderName, error: any): void {
   providerCooldownUntil[provider] = Date.now() + (retryAfterMs || fallbackMs);
 }
 
+function markProviderFailure(provider: ProviderName, error: any): void {
+  if (isQuotaLikeError(error)) {
+    markProviderCooldown(provider, error);
+    return;
+  }
+
+  providerCooldownUntil[provider] = Date.now() + 2 * 60 * 1000;
+}
+
 function isProviderCoolingDown(provider: ProviderName): boolean {
   return (providerCooldownUntil[provider] || 0) > Date.now();
 }
@@ -519,9 +528,9 @@ async function withFallbackSmart<T>(
     return await withRetry(async () => {
       const response = await getAI().models.generateContent(geminiConfig);
       return parseResult(response.text || '{}');
-    }, 3, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`));
+    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`));
   } catch (error: any) {
-    markProviderCooldown('gemini', error);
+    markProviderFailure('gemini', error);
     geminiErrorMsg = error?.message || String(error);
     console.warn('Gemini primary failed, trying Groq fallback...', geminiErrorMsg);
     onRetry?.(1, 5, 'Alternando para Groq (Gemini indisponivel)');
@@ -538,9 +547,9 @@ async function withFallbackSmart<T>(
           throw new Error('Groq retornou lista de questoes vazia');
         }
         return parsed;
-      }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`));
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`));
     } catch (error: any) {
-      markProviderCooldown('groq', error);
+      markProviderFailure('groq', error);
       groqErrorMsg = error?.message || String(error);
       console.warn('Groq fallback failed, trying OpenRouter...', groqErrorMsg);
       onRetry?.(2, 5, 'Alternando para OpenRouter (Groq falhou)');
@@ -556,9 +565,9 @@ async function withFallbackSmart<T>(
       return await withRetry(async () => {
         const text = await callOpenRouter(systemPrompt, userPrompt);
         return parseResult(text);
-      }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`));
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`));
     } catch (error: any) {
-      markProviderCooldown('openrouter', error);
+      markProviderFailure('openrouter', error);
       openrouterErrorMsg = error?.message || String(error);
       console.warn('OpenRouter fallback failed, trying NVIDIA...', openrouterErrorMsg);
       onRetry?.(3, 5, 'Alternando para NVIDIA (OpenRouter falhou)');
@@ -579,9 +588,9 @@ async function withFallbackSmart<T>(
           throw new Error('NVIDIA retornou lista de questoes vazia');
         }
         return parsed;
-      }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`));
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`));
     } catch (error: any) {
-      markProviderCooldown('nvidia', error);
+      markProviderFailure('nvidia', error);
       nvidiaErrorMsg = error?.message || String(error);
       console.warn('NVIDIA fallback failed, trying Gemini Flash...', nvidiaErrorMsg);
       onRetry?.(4, 5, 'Alternando para Gemini Flash (NVIDIA falhou)');
@@ -599,9 +608,9 @@ async function withFallbackSmart<T>(
     return await withRetry(async () => {
       const response = await getAI().models.generateContent(flashConfig);
       return parseResult(response.text || '{}');
-    }, 3, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`));
+    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`));
   } catch (error: any) {
-    markProviderCooldown('gemini-flash', error);
+    markProviderFailure('gemini-flash', error);
     flashErrorMsg = error?.message || String(error);
     setCurrentProvider('gemini');
     throw new RetryError(
