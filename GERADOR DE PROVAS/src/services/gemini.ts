@@ -19,6 +19,7 @@ interface ProviderStatus {
 let currentProvider: ProviderName = 'gemini';
 const providerListeners: Array<(provider: ProviderName) => void> = [];
 const providerCooldownUntil: Partial<Record<ProviderName, number>> = {};
+const SMART_PROVIDER_TIMEOUT_MS = 18000;
 
 class ProviderApiError extends Error {
   public status?: number;
@@ -98,9 +99,14 @@ function isProviderCoolingDown(provider: ProviderName): boolean {
   return (providerCooldownUntil[provider] || 0) > Date.now();
 }
 
+function logProviderSuccess(provider: ProviderName, detail: string): void {
+  console.info(`[ProfMatHub IA] ${provider} respondeu com sucesso: ${detail}`);
+}
+
 function getGenerationBatchSize(mode: GenerationMode = 'economico'): number {
-  if (mode === 'economico') return 4;
-  return 5;
+  if (mode === 'completo') return 3;
+  if (mode === 'rapido') return 4;
+  return 3;
 }
 
 function getQABatchSize(mode: GenerationMode = 'economico'): number {
@@ -527,8 +533,10 @@ async function withFallbackSmart<T>(
     setCurrentProvider('gemini');
     return await withRetry(async () => {
       const response = await getAI().models.generateContent(geminiConfig);
-      return parseResult(response.text || '{}');
-    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`), 12000);
+      const parsed = parseResult(response.text || '{}');
+      logProviderSuccess('gemini', 'conteudo gerado');
+      return parsed;
+    }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
   } catch (error: any) {
     markProviderFailure('gemini', error);
     geminiErrorMsg = error?.message || String(error);
@@ -546,8 +554,9 @@ async function withFallbackSmart<T>(
         if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
           throw new Error('Groq retornou lista de questoes vazia');
         }
+        logProviderSuccess('groq', `${anyResult?.questions?.length || 'conteudo'} item(ns)`);
         return parsed;
-      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`), 12000);
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
     } catch (error: any) {
       markProviderFailure('groq', error);
       groqErrorMsg = error?.message || String(error);
@@ -564,8 +573,11 @@ async function withFallbackSmart<T>(
       setCurrentProvider('openrouter');
       return await withRetry(async () => {
         const text = await callOpenRouter(systemPrompt, userPrompt);
-        return parseResult(text);
-      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`), 12000);
+        const parsed = parseResult(text);
+        const anyResult = parsed as any;
+        logProviderSuccess('openrouter', `${anyResult?.questions?.length || 'conteudo'} item(ns)`);
+        return parsed;
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
     } catch (error: any) {
       markProviderFailure('openrouter', error);
       openrouterErrorMsg = error?.message || String(error);
@@ -587,8 +599,9 @@ async function withFallbackSmart<T>(
         if (anyResult?.questions !== undefined && anyResult.questions.length === 0) {
           throw new Error('NVIDIA retornou lista de questoes vazia');
         }
+        logProviderSuccess('nvidia', `${anyResult?.questions?.length || 'conteudo'} item(ns)`);
         return parsed;
-      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`), 12000);
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
     } catch (error: any) {
       markProviderFailure('nvidia', error);
       nvidiaErrorMsg = error?.message || String(error);
@@ -607,8 +620,10 @@ async function withFallbackSmart<T>(
     const flashConfig = { ...geminiConfig, model: 'gemini-1.5-flash' };
     return await withRetry(async () => {
       const response = await getAI().models.generateContent(flashConfig);
-      return parseResult(response.text || '{}');
-    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`), 12000);
+      const parsed = parseResult(response.text || '{}');
+      logProviderSuccess('gemini-flash', 'conteudo gerado');
+      return parsed;
+    }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
   } catch (error: any) {
     markProviderFailure('gemini-flash', error);
     flashErrorMsg = error?.message || String(error);
@@ -1514,6 +1529,165 @@ ${previousQuestionsSummary}`;
   return { questions: allQuestions };
 }
 
+function normalizeReplacementQuestion(
+  question: Partial<ExamQuestion>,
+  original: ExamQuestion,
+  params: ExamParams,
+  index: number
+): ExamQuestion | null {
+  if (!question?.text || !question?.answer) return null;
+
+  const originalIsObjective = Boolean(original.options && original.options.length > 0);
+  const options = originalIsObjective
+    ? (Array.isArray(question.options) ? question.options.slice(0, 4) : [])
+    : [];
+
+  if (originalIsObjective && options.length !== 4) return null;
+
+  const localTopic = getLocalTopic(params, index);
+  const metadata = {
+    habilidadeIgarassu: question.metadata?.habilidadeIgarassu || original.metadata?.habilidadeIgarassu,
+    descritorMatrizLuz: question.metadata?.descritorMatrizLuz || original.metadata?.descritorMatrizLuz,
+    nivelComplexidade: question.metadata?.nivelComplexidade || original.metadata?.nivelComplexidade || getLocalDifficulty(params, index, params.questionCount),
+    unidadeTematica: question.metadata?.unidadeTematica || original.metadata?.unidadeTematica || localTopic.unidadeTematica,
+    objetoConhecimento: question.metadata?.objetoConhecimento || original.metadata?.objetoConhecimento || localTopic.objetoConhecimento,
+  };
+
+  return {
+    id: original.id,
+    type: question.type === 'direta' ? 'direta' : 'contextualizada',
+    text: question.text,
+    options,
+    answer: question.answer,
+    explanation: question.explanation || original.explanation || 'Resolucao direta pelo enunciado.',
+    metadata,
+  };
+}
+
+async function generateReplacementQuestionsWithProviders(
+  originalExam: ExamData,
+  params: ExamParams,
+  selectedQuestions: ExamQuestion[],
+  onRetry?: (attempt: number, maxRetries: number, reason: string) => void
+): Promise<ExamQuestion[]> {
+  const replacementCount = selectedQuestions.length;
+  const objectiveCount = selectedQuestions.filter(q => q.options && q.options.length > 0).length;
+  const openCount = replacementCount - objectiveCount;
+  const selectedIds = selectedQuestions.map(q => q.id);
+  const preservedSummary = originalExam.questions
+    .filter(q => !selectedIds.includes(q.id))
+    .slice(0, 24)
+    .map(q => `- Questao ${q.id}: ${q.text.slice(0, 130)}...`)
+    .join('\n');
+  const replacementSpecs = selectedQuestions
+    .map(q => `- Questao ${q.id}: substituir por uma questao ${q.options && q.options.length > 0 ? 'OBJETIVA com 4 opcoes' : 'ABERTA sem opcoes'}. Tema anterior: ${q.metadata?.objetoConhecimento || 'Matematica'}. Enunciado ruim/original: ${q.text.slice(0, 180)}...`)
+    .join('\n');
+
+  const systemInstruction = `Voce e um gerador de questoes de matematica para anos finais. Gere substituicoes novas para uma prova existente.
+
+REGRAS CRITICAS:
+- Gere EXATAMENTE ${replacementCount} questoes, somente para os IDs: ${selectedIds.join(', ')}.
+- Nao altere os IDs. Cada questao retornada deve manter o mesmo id solicitado.
+- Mantenha o tipo pedido: ${objectiveCount} objetivas com 4 opcoes e ${openCount} abertas sem opcoes.
+- Crie problemas novos, contextualizados e nao equivalentes aos enunciados originais.
+- Nao preserve os numeros antigos. Se o tema pedir racionais, fracoes, porcentagens ou decimais, use valores decimais quando fizer sentido.
+- Evite repetir contexto, operacao central e pergunta das questoes preservadas.
+- Responda estritamente em JSON valido, sem texto fora do JSON.
+- Nao use quebras de linha dentro de strings JSON. Use frases curtas em uma linha.
+
+FORMATO:
+{
+  "questions": [
+    {
+      "id": 1,
+      "type": "contextualizada",
+      "text": "Enunciado com LaTeX se necessario",
+      "options": ["opcao A", "opcao B", "opcao C", "opcao D"],
+      "answer": "A",
+      "explanation": "Resolucao curta",
+      "metadata": {
+        "habilidadeIgarassu": "EF06MA01-IGPE",
+        "descritorMatrizLuz": "D01",
+        "nivelComplexidade": "Facil",
+        "unidadeTematica": "Numeros",
+        "objetoConhecimento": "Decimais"
+      }
+    }
+  ]
+}`;
+
+  const prompt = `Substitua apenas as questoes marcadas abaixo.
+
+Parametros da prova:
+- Ano/serie: ${params.grade}
+- Topicos: ${params.topics || 'matematica do ano'}
+- Dificuldade: ${params.difficulty}
+- Contexto tematico: ${params.context || 'variado'}
+- Curriculo: ${params.curriculum}
+
+Questoes que devem ser substituidas:
+${replacementSpecs}
+
+Questoes preservadas para evitar repeticao:
+${preservedSummary || 'Nenhuma questao preservada informada.'}`;
+
+  const config: GenerateContentParameters = {
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: {
+      systemInstruction,
+      temperature: 0.85,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          questions: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.INTEGER },
+                type: { type: Type.STRING },
+                text: { type: Type.STRING },
+                options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                answer: { type: Type.STRING },
+                explanation: { type: Type.STRING },
+                metadata: {
+                  type: Type.OBJECT,
+                  properties: {
+                    habilidadeIgarassu: { type: Type.STRING },
+                    descritorMatrizLuz: { type: Type.STRING },
+                    nivelComplexidade: { type: Type.STRING },
+                    unidadeTematica: { type: Type.STRING },
+                    objetoConhecimento: { type: Type.STRING }
+                  }
+                }
+              },
+              required: ["id", "type", "text", "answer", "explanation", "metadata"]
+            }
+          }
+        },
+        required: ["questions"]
+      }
+    },
+  };
+
+  onRetry?.(1, 2, `Chamando APIs para substituir ${replacementCount} questoes`);
+  const result = await withFallbackSmart(
+    config,
+    systemInstruction,
+    prompt,
+    (text) => parseJSONWithFallback<ExamData>(text),
+    onRetry
+  );
+
+  const byId = new Map((result.questions || []).map(q => [q.id, q]));
+  return selectedQuestions
+    .map((original, index) => normalizeReplacementQuestion(byId.get(original.id) || {}, original, params, index))
+    .filter((q): q is ExamQuestion => Boolean(q));
+}
+
 export async function replaceSelectedQuestions(
   originalExam: ExamData,
   params: ExamParams,
@@ -1523,11 +1697,32 @@ export async function replaceSelectedQuestions(
   const selectedIds = new Set(questionIds);
   const totalQuestions = originalExam.questions.length;
   const variantBase = Math.max(1, Math.floor(Date.now() / 1000) % 997);
+  const selectedQuestions = originalExam.questions.filter((question, index) => selectedIds.has(question.id || index + 1));
+  const apiReplacements = new Map<number, ExamQuestion>();
   let replacedCount = 0;
+
+  if (selectedQuestions.length > 0 && hasRemoteProviderConfigured()) {
+    try {
+      const generatedByApi = await generateReplacementQuestionsWithProviders(originalExam, params, selectedQuestions, onRetry);
+      generatedByApi.forEach(question => apiReplacements.set(question.id, question));
+      console.info(`[ProfMatHub IA] Substituicao por API retornou ${apiReplacements.size}/${selectedQuestions.length} questoes.`);
+      if (apiReplacements.size < selectedQuestions.length) {
+        onRetry?.(2, 2, `APIs retornaram ${apiReplacements.size}/${selectedQuestions.length}; completando o restante localmente`);
+      }
+    } catch (error) {
+      console.warn('Substituicao por APIs falhou; completando com gerador local.', error);
+      onRetry?.(2, 2, 'APIs indisponiveis na substituicao; usando gerador local');
+    }
+  } else if (selectedQuestions.length > 0) {
+    onRetry?.(1, 1, 'Nenhuma API configurada; substituindo com gerador local');
+  }
 
   const questions = originalExam.questions.map((question, index) => {
     const questionId = question.id || index + 1;
     if (!selectedIds.has(questionId)) return question;
+
+    const apiQuestion = apiReplacements.get(questionId);
+    if (apiQuestion) return apiQuestion;
 
     replacedCount++;
     onRetry?.(replacedCount, selectedIds.size, `Substituindo questao ${questionId}`);
