@@ -18,3 +18,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1qEmKfg5aasrNQDPHm4n0gM
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Current generator update
+
+- Adds replacement for selected generated questions while preserving the rest of the exam.
+- Improves local fallback diversity with contextual problem templates and decimal-friendly values.
