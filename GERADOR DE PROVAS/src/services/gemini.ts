@@ -291,7 +291,13 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, onRetry?: (att
         error?.status === 429 ||
         error?.code === 429;
         
-      const isDailyQuotaError = isQuotaError && (errorString.includes('PERDAY') || errorString.includes('LIMIT: 0'));
+      const isDailyQuotaError = isQuotaError && (
+        errorString.includes('PERDAY') ||
+        errorString.includes('LIMIT: 0') ||
+        errorString.includes('DAILY') ||
+        errorString.includes('DIARIO') ||
+        errorString.includes('DIÁRIO')
+      );
         
       const isJsonError = error instanceof SyntaxError || errorString.includes('SYNTAXERROR') || errorString.includes('JSON');
       const isTimeoutError = errorString.includes('CANCELADA PELO SISTEMA') || errorString.includes('TIMEOUT');
@@ -299,6 +305,14 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, onRetry?: (att
       const reason = isQuotaError ? 'Servidores sobrecarregados' : isTimeoutError ? 'Tempo limite excedido' : isJsonError ? 'Erro de formatação' : 'Erro desconhecido';
       const logEntry = `Tentativa ${i + 1}/${maxRetries} falhou: ${reason}. Detalhe: ${error?.message || errorString}`;
       retryLog.push(logEntry);
+
+      if (isDailyQuotaError) {
+        throw new RetryError('O limite diario de uso da API gratuita foi atingido. A prova sera completada por outro provedor ou pelo gerador local.', retryLog);
+      }
+
+      if (isQuotaError) {
+        throw new RetryError('O provedor atingiu limite de cota. A prova sera completada por outro provedor ou pelo gerador local.', retryLog);
+      }
       
       // Retries on ANY error except daily quota exhausted, until maxRetries is reached
       if (!isDailyQuotaError && i < maxRetries - 1) {
