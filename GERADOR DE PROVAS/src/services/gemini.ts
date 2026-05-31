@@ -810,9 +810,14 @@ function getLocalDifficulty(params: ExamParams, index: number, totalQuestions: n
 function getLocalTopic(params: ExamParams, index: number): { unidadeTematica: string; objetoConhecimento: string } {
   const requestedTopic = params.topics?.trim();
   if (requestedTopic) {
+    const topicParts = requestedTopic
+      .split(/[,;|]/)
+      .map(part => part.trim())
+      .filter(Boolean);
+    const selectedTopic = topicParts.length > 0 ? topicParts[index % topicParts.length] : requestedTopic;
     return {
       unidadeTematica: 'Matematica',
-      objetoConhecimento: requestedTopic.slice(0, 40)
+      objetoConhecimento: selectedTopic.slice(0, 40)
     };
   }
 
@@ -828,78 +833,416 @@ function getLocalTopic(params: ExamParams, index: number): { unidadeTematica: st
 }
 
 function getReferenceContext(params: ExamParams, index: number): string {
-  if (params.context?.trim()) return params.context.trim();
+  const frames = [
+    'um simulado contextualizado sobre',
+    'uma reportagem escolar sobre',
+    'um projeto interdisciplinar sobre',
+    'uma prova no estilo ENEM envolvendo',
+    'uma investigacao de estudantes sobre',
+    'uma tabela de acompanhamento sobre',
+    'uma campanha da escola sobre',
+    'um desafio de raciocinio com dados de',
+  ];
+
+  if (params.context?.trim()) {
+    const themes = params.context
+      .split(/[,;|]/)
+      .map(part => part.trim())
+      .filter(Boolean);
+    const theme = themes.length > 0 ? themes[index % themes.length] : params.context.trim();
+    return `${frames[index % frames.length]} ${theme}`;
+  }
 
   const contexts = [
-    'a feira livre de Igarassu organizou barracas por setor e registrou o fluxo de visitantes',
-    'uma turma analisou dados de transporte escolar entre bairros de Igarassu',
-    'estudantes compararam gastos de uma excursao pedagogica ao Sitio Historico',
-    'uma equipe montou uma tabela de desempenho em um simulado no estilo IFPE',
-    'um projeto de horta escolar mediu canteiros retangulares e consumo de agua',
-    'um clube de estudos resolveu um desafio inspirado em concursos de colegio militar',
-    'uma pesquisa no patio da escola registrou preferencias por atividades esportivas',
-    'um grafico no estilo ENEM comparou economia de energia em salas de aula',
-    'uma biblioteca escolar acompanhou emprestimos de livros durante quatro semanas',
-    'um grupo calculou o custo de materiais para uma mostra de matematica',
+    'uma feira livre de Igarassu com barracas organizadas por setor',
+    'um levantamento sobre transporte escolar entre bairros de Igarassu',
+    'uma excursao pedagogica ao Sitio Historico com controle de gastos',
+    'um simulado no estilo IFPE com tabela de desempenho',
+    'um projeto de horta escolar com canteiros retangulares e consumo de agua',
+    'um clube de estudos com desafios inspirados em concursos de colegio militar',
+    'uma pesquisa no patio da escola sobre atividades esportivas',
+    'um grafico no estilo ENEM sobre economia de energia em salas de aula',
+    'uma biblioteca escolar com emprestimos registrados durante quatro semanas',
+    'uma mostra de matematica com compra de materiais por equipe',
+    'uma seletiva escolar com pontuacoes em matematica e lingua portuguesa',
+    'um edital de curso tecnico com vagas por campus e turnos',
+    'uma feira de ciencias com medidas de recipientes usados em experimentos',
+    'uma planilha de merenda com quantidades compradas e consumidas',
+    'um mapa simples com distancias entre a escola, o mercado e o ponto de onibus',
+    'uma campanha de arrecadacao com metas parciais em dias diferentes',
+    'um treino para olimpadas de matematica com problemas por nivel',
+    'uma pesquisa sobre uso de celular apresentada em tabela',
+    'um planejamento de aula de campo com tempo de deslocamento e custo por estudante',
+    'um laboratorio escolar com medidas decimais em uma receita experimental',
   ];
 
   return contexts[index % contexts.length];
 }
 
-function buildLocalQuestion(params: ExamParams, id: number, totalQuestions: number, objective: boolean): ExamQuestion {
+function getAnswerLetter(options: number[], correctValue: number): string {
+  const index = options.findIndex(value => value === correctValue);
+  return ['A', 'B', 'C', 'D'][Math.max(0, index)];
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function formatMathNumber(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1).replace('.', '{,}');
+}
+
+function formatAnswerNumber(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1).replace('.', ',');
+}
+
+function shouldUseDecimals(params: ExamParams, seed: number): boolean {
+  const hint = `${params.topics || ''} ${params.context || ''}`.toLowerCase();
+  return (
+    hint.includes('decimal') ||
+    hint.includes('racion') ||
+    hint.includes('fracao') ||
+    hint.includes('fração') ||
+    hint.includes('porcent') ||
+    seed % 6 === 0
+  );
+}
+
+function buildNumericOptions(correctValue: number, seed: number): number[] {
+  const distractors = [
+    correctValue,
+    round1(correctValue + 2 + (seed % 5) / 2),
+    round1(Math.max(0.5, correctValue - 1 - (seed % 4) / 2)),
+    round1(correctValue + 6 + (seed % 7) / 2),
+  ];
+  const unique = Array.from(new Set(distractors));
+  while (unique.length < 4) unique.push(correctValue + unique.length * 3 + seed);
+
+  const shift = seed % 4;
+  return unique.slice(0, 4).map((_, idx, arr) => arr[(idx + shift) % arr.length]);
+}
+
+function buildLocalQuestion(params: ExamParams, id: number, totalQuestions: number, objective: boolean, variant = 0): ExamQuestion {
   const gradeNumber = Number.parseInt(params.grade, 10) || 6;
-  const level = getLocalDifficulty(params, id - 1, totalQuestions);
-  const topic = getLocalTopic(params, id - 1);
-  const context = getReferenceContext(params, id - 1);
-  const base = gradeNumber + id;
+  const seed = id + variant * 11;
+  const level = getLocalDifficulty(params, seed - 1, totalQuestions);
+  const topic = getLocalTopic(params, seed - 1);
+  const context = getReferenceContext(params, seed - 1);
+  const base = gradeNumber + seed;
   const factor = level === 'Dificil' ? 4 : level === 'Medio' ? 3 : 2;
+  const useDecimals = shouldUseDecimals(params, seed);
+  const n = (value: number) => useDecimals ? round1(value + ((seed % 7) + 1) / 10) : value;
+  const m = (value: number) => formatMathNumber(value);
+  const a = (value: number) => formatAnswerNumber(value);
 
   if (objective) {
-    const correctValue = base * factor + id;
-    const options = [
-      correctValue,
-      correctValue + factor,
-      Math.max(1, correctValue - factor),
-      correctValue + factor + id,
+    const objectiveTemplates = [
+      () => {
+        const groups = n(base);
+        const perGroup = factor + 1;
+        const extra = n(seed % 9);
+        const correct = round1(groups * perGroup + extra);
+        return {
+          text: `Em ${context}, foram formados $${m(groups)}$ grupos com $${perGroup}$ participantes e chegaram mais $${m(extra)}$ participantes. Qual foi o total?`,
+          correct,
+          explanation: `${a(groups)} x ${perGroup} + ${a(extra)} = ${a(correct)}.`,
+          object: 'Multiplicacao'
+        };
+      },
+      () => {
+        const initial = n(base * 6);
+        const percent = 10 + (seed % 4) * 5;
+        const correct = round1(initial * (100 - percent) / 100);
+        return {
+          text: `Em ${context}, um valor de $${m(initial)}$ teve reducao de $${percent}\\%$. Qual ficou sendo o novo valor?`,
+          correct,
+          explanation: `${a(initial)} - ${percent}\\% = ${a(correct)}.`,
+          object: 'Porcentagem'
+        };
+      },
+      () => {
+        const first = n(base + 8);
+        const second = n(base + factor);
+        const correct = round1(first + second);
+        return {
+          text: `Em ${context}, uma tabela registrou $${m(first)}$ ocorrencias pela manha e $${m(second)}$ a tarde. Qual e o total do dia?`,
+          correct,
+          explanation: `${a(first)} + ${a(second)} = ${a(correct)}.`,
+          object: 'Tabelas'
+        };
+      },
+      () => {
+        const length = n(base + 4);
+        const width = n(factor + 3);
+        const correct = round1(length * width);
+        return {
+          text: `Em ${context}, um espaco retangular mede $${m(length)}$ m por $${m(width)}$ m. Qual e a area desse espaco?`,
+          correct,
+          explanation: `${a(length)} x ${a(width)} = ${a(correct)}.`,
+          object: 'Areas'
+        };
+      },
+      () => {
+        const total = n(base * 5);
+        const parts = factor + 2;
+        const correct = round1(total / parts);
+        return {
+          text: `Em ${context}, $${m(total)}$ kg de material foram distribuidos igualmente em $${parts}$ caixas. Quantos kg ficaram em cada caixa?`,
+          correct,
+          explanation: `${a(total)} / ${parts} = ${a(correct)}.`,
+          object: 'Divisao'
+        };
+      },
+      () => {
+        const start = n(base * 2);
+        const step = n(factor + 2);
+        const correct = round1(start + 4 * step);
+        return {
+          text: `Em ${context}, uma sequencia comeca em $${m(start)}$ e aumenta $${m(step)}$ a cada etapa. Qual e o quinto termo?`,
+          correct,
+          explanation: `${a(start)} + 4 x ${a(step)} = ${a(correct)}.`,
+          object: 'Sequencias'
+        };
+      },
+      () => {
+        const total = 40 + seed;
+        const marked = n(8 + (seed % 12));
+        const correct = round1(total - marked);
+        return {
+          text: `Em ${context}, de $${total}$ respostas coletadas, $${m(marked)}$ foram marcadas para revisao. Quantas ficaram aprovadas sem revisao?`,
+          correct,
+          explanation: `${total} - ${a(marked)} = ${a(correct)}.`,
+          object: 'Subtracao'
+        };
+      },
+      () => {
+        const value = n(base * factor);
+        const fee = n(seed % 7 + 3);
+        const correct = round1(value + fee);
+        return {
+          text: `Em ${context}, o custo principal foi de R$ $${m(value)}$ e houve uma taxa de R$ $${m(fee)}$. Qual foi o custo total?`,
+          correct,
+          explanation: `${a(value)} + ${a(fee)} = ${a(correct)}.`,
+          object: 'Sistema monetario'
+        };
+      },
+      () => {
+        const mapDistance = n(base + 2);
+        const scale = factor + 1;
+        const correct = round1(mapDistance * scale);
+        return {
+          text: `Em ${context}, cada centimetro no mapa representa $${scale}$ km. Se a distancia medida foi $${m(mapDistance)}$ cm, qual e a distancia real?`,
+          correct,
+          explanation: `${a(mapDistance)} x ${scale} = ${a(correct)}.`,
+          object: 'Escala'
+        };
+      },
+      () => {
+        const recipe = n(base + factor);
+        const multiplier = 2 + (seed % 3);
+        const correct = round1(recipe * multiplier);
+        return {
+          text: `Em ${context}, uma receita usa $${m(recipe)}$ L de suco para um grupo. Para atender $${multiplier}$ grupos iguais, quantos litros serao necessarios?`,
+          correct,
+          explanation: `${a(recipe)} x ${multiplier} = ${a(correct)}.`,
+          object: 'Proporcionalidade'
+        };
+      },
+      () => {
+        const monday = n(base * 2);
+        const increase = n(factor + seed % 5);
+        const correct = round1(monday + increase);
+        return {
+          text: `Em ${context}, o grafico indicou $${m(monday)}$ registros na segunda-feira e aumento de $${m(increase)}$ na terca-feira. Qual foi o valor de terca-feira?`,
+          correct,
+          explanation: `${a(monday)} + ${a(increase)} = ${a(correct)}.`,
+          object: 'Graficos'
+        };
+      },
+      () => {
+        const total = n(base * 4);
+        const percent = 50;
+        const correct = round1(total * percent / 100);
+        return {
+          text: `Em ${context}, metade de $${m(total)}$ participantes escolheu a mesma alternativa. Quantos participantes foram esses?`,
+          correct,
+          explanation: `${percent}\\% de ${a(total)} = ${a(correct)}.`,
+          object: 'Fracoes'
+        };
+      },
     ];
-    const correctIndex = (id + gradeNumber) % 4;
-    const rotated = options.map((_, idx) => options[(idx - correctIndex + 4) % 4]);
-    const answer = ['A', 'B', 'C', 'D'][correctIndex];
+
+    const built = objectiveTemplates[seed % objectiveTemplates.length]();
+    const options = buildNumericOptions(built.correct, seed);
+    const answer = getAnswerLetter(options, built.correct);
 
     return {
       id,
       type: 'contextualizada',
-      text: `Em ${context}, foram registrados $${base}$ grupos com $${factor}$ itens cada e mais $${id}$ itens avulsos. Qual foi o total registrado?`,
-      options: rotated.map(value => `${value} itens`),
+      text: built.text,
+      options: options.map(value => `${a(value)}`),
       answer,
-      explanation: `${base} x ${factor} + ${id} = ${correctValue}.`,
+      explanation: built.explanation,
       metadata: {
         habilidadeIgarassu: `EF0${Math.min(9, gradeNumber)}MA01-IGPE`,
         descritorMatrizLuz: 'D01',
         nivelComplexidade: level,
         unidadeTematica: topic.unidadeTematica,
-        objetoConhecimento: topic.objetoConhecimento,
+        objetoConhecimento: topic.objetoConhecimento || built.object,
       }
     };
   }
 
-  const firstValue = base * factor;
-  const secondValue = id + gradeNumber;
-  const answerValue = firstValue - secondValue;
+  const openTemplates = [
+      () => {
+      const fixed = n(base * 3);
+      const variable = n(factor + 2);
+      const target = round1(fixed + variable * 5);
+      return {
+        text: `Em ${context}, o total de pontos de uma equipe foi modelado por $${m(fixed)} + ${m(variable)}x = ${m(target)}$. Determine o valor de $x$ e explique o procedimento.`,
+        answer: '5',
+        explanation: `${a(target)} - ${a(fixed)} = ${a(round1(variable * 5))}; x = 5.`,
+        object: 'Equacoes'
+      };
+    },
+    () => {
+      const total = n(base * 8);
+      const percent = 25;
+      const answer = round1(total * percent / 100);
+      return {
+        text: `Em ${context}, $${percent}\\%$ de $${m(total)}$ registros pertencem a uma categoria. Calcule essa quantidade e interprete o resultado.`,
+        answer: `${a(answer)}`,
+        explanation: `${percent}\\% de ${a(total)} = ${a(answer)}.`,
+        object: 'Porcentagem'
+      };
+    },
+    () => {
+      const length = n(base + 5);
+      const width = n(factor + 4);
+      const area = round1(length * width);
+      return {
+        text: `Em ${context}, um painel retangular tem $${m(length)}$ cm de comprimento e $${m(width)}$ cm de largura. Calcule a area e indique a unidade adequada.`,
+        answer: `${a(area)} cm2`,
+        explanation: `${a(length)} x ${a(width)} = ${a(area)}.`,
+        object: 'Areas'
+      };
+    },
+    () => {
+      const values = [n(base), n(base + factor), n(base + factor * 2), n(base + factor * 3)];
+      const mean = round1(values.reduce((sum, value) => sum + value, 0) / values.length);
+      return {
+        text: `Em ${context}, quatro valores registrados foram $${values.map(m).join('; ')}$. Calcule a media aritmetica desses valores.`,
+        answer: `${a(mean)}`,
+        explanation: `Soma ${a(round1(values.reduce((sum, value) => sum + value, 0)))} / 4 = ${a(mean)}.`,
+        object: 'Media'
+      };
+    },
+    () => {
+      const start = n(base);
+      const step = n(factor + 1);
+      const term = round1(start + 6 * step);
+      return {
+        text: `Em ${context}, uma sequencia segue o padrao de comecar em $${m(start)}$ e aumentar $${m(step)}$ por etapa. Determine o setimo termo.`,
+        answer: `${a(term)}`,
+        explanation: `${a(start)} + 6 x ${a(step)} = ${a(term)}.`,
+        object: 'Sequencias'
+      };
+    },
+    () => {
+      const total = n(base * 5);
+      const used = n(base + factor);
+      const remaining = round1(total - used);
+      return {
+        text: `Em ${context}, havia $${m(total)}$ unidades disponiveis e $${m(used)}$ foram utilizadas. Calcule quantas restaram e justifique.`,
+        answer: `${a(remaining)}`,
+        explanation: `${a(total)} - ${a(used)} = ${a(remaining)}.`,
+        object: 'Subtracao'
+      };
+    },
+    () => {
+      const price = n(base * 4);
+      const students = factor + 6;
+      const total = round1(price * students);
+      return {
+        text: `Em ${context}, cada inscricao custou R$ $${m(price)}$ e $${students}$ estudantes participaram. Calcule o custo total.`,
+        answer: `R$ ${a(total)}`,
+        explanation: `${a(price)} x ${students} = ${a(total)}.`,
+        object: 'Multiplicacao'
+      };
+    },
+    () => {
+      const total = n(base * 6);
+      const boxes = factor + 3;
+      const perBox = round1(total / boxes);
+      return {
+        text: `Em ${context}, $${m(total)}$ kg de materiais foram separados igualmente em $${boxes}$ caixas. Quantos kg ficam em cada caixa?`,
+        answer: `${a(perBox)} kg por caixa`,
+        explanation: `${a(total)} / ${boxes} = ${a(perBox)}.`,
+        object: 'Divisao'
+      };
+    },
+    () => {
+      const distance = n(base + 12);
+      const time = factor + 2;
+      const speed = round1(distance / time);
+      return {
+        text: `Em ${context}, um deslocamento de $${m(distance)}$ km durou $${time}$ horas. Calcule a velocidade media.`,
+        answer: `${a(speed)} km/h`,
+        explanation: `${a(distance)} / ${time} = ${a(speed)}.`,
+        object: 'Razao'
+      };
+    },
+    () => {
+      const goal = n(base * 7);
+      const done = n(base * 3);
+      const missing = round1(goal - done);
+      return {
+        text: `Em ${context}, a meta era $${m(goal)}$ unidades e ja foram registradas $${m(done)}$. Quanto falta para atingir a meta?`,
+        answer: `${a(missing)}`,
+        explanation: `${a(goal)} - ${a(done)} = ${a(missing)}.`,
+        object: 'Comparacao'
+      };
+    },
+    () => {
+      const original = n(base * 5);
+      const newValue = n(base * 5 + factor * 3);
+      const increase = round1(newValue - original);
+      return {
+        text: `Em ${context}, um indicador passou de $${m(original)}$ para $${m(newValue)}$. Calcule o aumento absoluto.`,
+        answer: `${a(increase)}`,
+        explanation: `${a(newValue)} - ${a(original)} = ${a(increase)}.`,
+        object: 'Graficos'
+      };
+    },
+    () => {
+      const value = n(base + 4);
+      const third = round1(value / 3);
+      return {
+        text: `Em ${context}, uma quantidade de $${m(value)}$ foi dividida em tres partes iguais. Calcule uma dessas partes.`,
+        answer: `${a(third)}`,
+        explanation: `${a(value)} / 3 = ${a(third)}.`,
+        object: 'Fracoes'
+      };
+    },
+  ];
+
+  const built = openTemplates[seed % openTemplates.length]();
 
   return {
     id,
-    type: id % 2 === 0 ? 'contextualizada' : 'direta',
-    text: `Em ${context}, havia $${firstValue}$ registros e $${secondValue}$ foram revisados. Quantos registros ficaram pendentes?`,
+    type: 'contextualizada',
+    text: built.text,
     options: [],
-    answer: `${answerValue}`,
-    explanation: `${firstValue} - ${secondValue} = ${answerValue}.`,
+    answer: built.answer,
+    explanation: built.explanation,
     metadata: {
       habilidadeIgarassu: `EF0${Math.min(9, gradeNumber)}MA02-IGPE`,
       descritorMatrizLuz: 'D02',
       nivelComplexidade: level,
       unidadeTematica: topic.unidadeTematica,
-      objetoConhecimento: topic.objetoConhecimento,
+      objetoConhecimento: topic.objetoConhecimento || built.object,
     }
   };
 }
@@ -992,6 +1335,13 @@ ESTRUTURA E PROPORÇÃO DO LOTE:
 - PROGRESSÃO DE DIFICULDADE: A prova DEVE ser rigorosamente ordenada por nível de dificuldade.
 - GABARITO RANDOMIZADO: As respostas corretas das questões de múltipla escolha DEVEM ser distribuídas aleatoriamente.
 ${bankOfContexts}
+
+REGRAS DE QUALIDADE E DIVERSIDADE (OBRIGATORIO):
+- Cada questao deve ser um problema com contexto realista, dados interpretaveis e pergunta clara. Evite trocar apenas nomes ou numeros.
+- Nao repita o mesmo cenario, a mesma operacao central ou uma pergunta equivalente a outra ja gerada.
+- Se o usuario pedir numeros racionais, fracoes, porcentagens ou decimais, inclua valores decimais em parte relevante do enunciado, das alternativas ou da resposta.
+- Use estilos variados inspirados em IFPE, ENEM e Colegio Militar: tabelas, comparacoes, escalas, porcentagens, planejamento, leitura de grafico e situacoes de decisao.
+- As questoes anteriores listadas abaixo sao proibidas como molde direto para novas questoes deste lote.
 
 FORMATO DE SAÍDA E SINTAXE LATEX (CRÍTICO):
 Você deve retornar ESTRITAMENTE um objeto JSON válido contendo a lista de questões.
@@ -1162,6 +1512,32 @@ ${previousQuestionsSummary}`;
 
   clearGenerationDraft(params);
   return { questions: allQuestions };
+}
+
+export async function replaceSelectedQuestions(
+  originalExam: ExamData,
+  params: ExamParams,
+  questionIds: number[],
+  onRetry?: (attempt: number, maxRetries: number, reason: string) => void
+): Promise<ExamData> {
+  const selectedIds = new Set(questionIds);
+  const totalQuestions = originalExam.questions.length;
+  const variantBase = Math.max(1, Math.floor(Date.now() / 1000) % 997);
+  let replacedCount = 0;
+
+  const questions = originalExam.questions.map((question, index) => {
+    const questionId = question.id || index + 1;
+    if (!selectedIds.has(questionId)) return question;
+
+    replacedCount++;
+    onRetry?.(replacedCount, selectedIds.size, `Substituindo questao ${questionId}`);
+    setCurrentProvider('local');
+
+    const keepObjectiveType = Boolean(question.options && question.options.length > 0);
+    return buildLocalQuestion(params, questionId, totalQuestions, keepObjectiveType, variantBase + replacedCount + index);
+  });
+
+  return { questions };
 }
 
 export interface QAResult {

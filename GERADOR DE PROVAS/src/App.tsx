@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FileText, Download, Copy, CheckCircle2, Loader2, BookOpen, Settings2, School, Printer, FileDown, ShieldCheck, X, Wand2, History } from 'lucide-react';
-import { generateExam, ExamParams, ExamData, runQAAndCorrect, RetryError, onProviderChange, getCurrentProvider } from './services/gemini';
+import { generateExam, ExamParams, ExamData, runQAAndCorrect, RetryError, onProviderChange, getCurrentProvider, replaceSelectedQuestions } from './services/gemini';
 import type { GenerationMode } from './services/gemini';
 import { generateLatex, generateDocx } from './utils/generators';
 import { saveExamToBank, findSimilarExam, findReusableExam, getExamsFromBank, StoredExam } from './utils/storage';
@@ -63,6 +63,8 @@ export default function App() {
   const [lastParams, setLastParams] = useState<ExamParams | null>(null);
   const [activeProvider, setActiveProvider] = useState<string>(getCurrentProvider());
   const [generationMode, setGenerationMode] = useState<GenerationMode>('economico');
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
+  const [isReplacingQuestions, setIsReplacingQuestions] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -128,6 +130,37 @@ export default function App() {
     }
   };
 
+  const toggleQuestionSelection = (questionId: number) => {
+    setSelectedQuestionIds(prev => (
+      prev.includes(questionId)
+        ? prev.filter(id => id !== questionId)
+        : [...prev, questionId].sort((a, b) => a - b)
+    ));
+  };
+
+  const handleReplaceSelectedQuestions = async () => {
+    if (!examData || selectedQuestionIds.length === 0) return;
+
+    const paramsForReplacement = lastParams || params;
+    setIsReplacingQuestions(true);
+    setRetryMessage('');
+    setError('');
+    try {
+      const updatedExam = await replaceSelectedQuestions(examData, paramsForReplacement, selectedQuestionIds, handleRetry);
+      setExamData(updatedExam);
+      setGeneratedLatex(generateLatex(paramsForReplacement, updatedExam));
+      saveExamToBank(paramsForReplacement, updatedExam);
+      setSelectedQuestionIds([]);
+      setQaReport(null);
+      setPendingCorrectedExam(null);
+    } catch (err: any) {
+      setError(err.message || 'Ocorreu um erro ao substituir as questões selecionadas.');
+    } finally {
+      setIsReplacingQuestions(false);
+      setRetryMessage('');
+    }
+  };
+
   const applyCorrections = async () => {
     if (pendingCorrectedExam && lastParams) {
       setIsApplyingCorrections(true);
@@ -154,6 +187,7 @@ export default function App() {
     setGeneratedLatex('');
     setQaReport(null);
     setPendingCorrectedExam(null);
+    setSelectedQuestionIds([]);
     setLastParams(params);
     setRetryMessage('');
     
@@ -607,7 +641,7 @@ export default function App() {
           <div className="lg:col-span-8 print:col-span-12">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-full min-h-[600px] flex flex-col overflow-hidden print:border-none print:shadow-none">
               {/* Output Header - Hidden when printing */}
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 print:hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 print:hidden">
                 <div className="flex items-center gap-4">
                   <h3 className="font-medium text-slate-800">Resultado</h3>
                   {examData && (
@@ -628,11 +662,22 @@ export default function App() {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {viewMode === 'preview' && examData && (
+                    <button
+                      onClick={handleReplaceSelectedQuestions}
+                      disabled={selectedQuestionIds.length === 0 || isGenerating || isReplacingQuestions}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isReplacingQuestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                      {selectedQuestionIds.length > 0 ? `Substituir ${selectedQuestionIds.length}` : 'Substituir marcadas'}
+                    </button>
+                  )}
+
                   {viewMode === 'latex' && (
                     <button
                       onClick={handleCopy}
-                      disabled={!generatedLatex || isGenerating}
+                      disabled={!generatedLatex || isGenerating || isReplacingQuestions}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
@@ -642,7 +687,7 @@ export default function App() {
                   
                   <button
                     onClick={handleDownloadDocx}
-                    disabled={!examData || isGenerating}
+                    disabled={!examData || isGenerating || isReplacingQuestions}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <FileDown className="w-4 h-4" />
@@ -651,7 +696,7 @@ export default function App() {
 
                   <button
                     onClick={handleDownloadLatex}
-                    disabled={!generatedLatex || isGenerating}
+                    disabled={!generatedLatex || isGenerating || isReplacingQuestions}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Download className="w-4 h-4" />
@@ -660,7 +705,7 @@ export default function App() {
 
                   <button
                     onClick={handleRunQA}
-                    disabled={!examData || isGenerating || isRunningQA}
+                    disabled={!examData || isGenerating || isReplacingQuestions || isRunningQA}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isRunningQA ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
@@ -669,7 +714,7 @@ export default function App() {
 
                   <button
                     onClick={handlePrint}
-                    disabled={!examData || isGenerating}
+                    disabled={!examData || isGenerating || isReplacingQuestions}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Printer className="w-4 h-4" />
@@ -680,10 +725,12 @@ export default function App() {
 
               {/* Output Body */}
               <div className="flex-1 p-0 relative bg-white print:p-0">
-                {isGenerating ? (
+                {isGenerating || isReplacingQuestions ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50/80 backdrop-blur-sm z-10 print:hidden">
                     <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-600" />
-                    <p className="text-sm font-medium text-slate-700">{generationStep || 'Elaborando questões...'}</p>
+                    <p className="text-sm font-medium text-slate-700">
+                      {isReplacingQuestions ? 'Substituindo questoes marcadas...' : (generationStep || 'Elaborando questões...')}
+                    </p>
                     
                     <div className="w-64 max-w-[80%] h-2 bg-slate-200 rounded-full mt-4 overflow-hidden">
                       <style>{`.dynamic-progress { width: ${progress}%; }`}</style>
@@ -691,7 +738,9 @@ export default function App() {
                         className="h-full bg-indigo-600 transition-all duration-500 ease-out rounded-full dynamic-progress"
                       />
                     </div>
-                    <p className="text-xs mt-2 text-slate-500">{Math.round(progress)}% concluído</p>
+                    <p className="text-xs mt-2 text-slate-500">
+                      {isReplacingQuestions ? `${selectedQuestionIds.length} questoes selecionadas` : `${Math.round(progress)}% concluído`}
+                    </p>
                     {retryMessage ? (
                       <p className="text-xs mt-2 text-amber-600 font-medium">{retryMessage}</p>
                     ) : (
@@ -856,7 +905,19 @@ export default function App() {
                     <div className="space-y-8">
                       {examData.questions.map((q, index) => (
                         <div key={index} className="break-inside-avoid">
-                          <p className="font-bold mb-2">Questão {index + 1}</p>
+                          <div className="flex items-center justify-between gap-3 mb-2">
+                            <p className="font-bold">Questão {index + 1}</p>
+                            <label className="print:hidden inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-violet-700 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={selectedQuestionIds.includes(q.id || index + 1)}
+                                onChange={() => toggleQuestionSelection(q.id || index + 1)}
+                                disabled={isGenerating || isReplacingQuestions}
+                                className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                              />
+                              Marcar para substituir
+                            </label>
+                          </div>
                           <div className="prose prose-sm max-w-none mb-4">
                             <Markdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
                               {formatMarkdownText(q.text)}
@@ -1062,6 +1123,7 @@ export default function App() {
                         onClick={() => {
                           setExamData(exam.examData);
                           setLastParams(exam.params);
+                          setSelectedQuestionIds([]);
                           const latex = generateLatex(exam.params, exam.examData);
                           setGeneratedLatex(latex);
                           setShowHistoryModal(false);
