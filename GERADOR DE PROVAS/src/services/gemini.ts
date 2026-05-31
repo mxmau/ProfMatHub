@@ -536,7 +536,7 @@ async function withFallbackSmart<T>(
       const parsed = parseResult(response.text || '{}');
       logProviderSuccess('gemini', 'conteudo gerado');
       return parsed;
-    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
+    }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
   } catch (error: any) {
     markProviderFailure('gemini', error);
     geminiErrorMsg = error?.message || String(error);
@@ -623,7 +623,7 @@ async function withFallbackSmart<T>(
       const parsed = parseResult(response.text || '{}');
       logProviderSuccess('gemini-flash', 'conteudo gerado');
       return parsed;
-    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
+    }, 2, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`), SMART_PROVIDER_TIMEOUT_MS);
   } catch (error: any) {
     markProviderFailure('gemini-flash', error);
     flashErrorMsg = error?.message || String(error);
@@ -1593,6 +1593,7 @@ REGRAS CRITICAS:
 - Nao preserve os numeros antigos. Se o tema pedir racionais, fracoes, porcentagens ou decimais, use valores decimais quando fizer sentido.
 - Evite repetir contexto, operacao central e pergunta das questoes preservadas.
 - Responda estritamente em JSON valido, sem texto fora do JSON.
+- Nao use quebras de linha dentro de strings JSON. Use frases curtas em uma linha.
 
 FORMATO:
 {
@@ -1636,7 +1637,7 @@ ${preservedSummary || 'Nenhuma questao preservada informada.'}`;
     config: {
       systemInstruction,
       temperature: 0.85,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 4096,
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
