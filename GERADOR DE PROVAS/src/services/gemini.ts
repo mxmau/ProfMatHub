@@ -263,14 +263,14 @@ export class RetryError extends Error {
   }
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, onRetry?: (attempt: number, maxRetries: number, reason: string) => void): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, onRetry?: (attempt: number, maxRetries: number, reason: string) => void, timeoutMs = 90000): Promise<T> {
   let lastError: any;
   const retryLog: string[] = [];
   
   for (let i = 0; i < maxRetries; i++) {
     try {
       // 90 seconds timeout per attempt
-      return await withTimeout(fn(), 90000);
+      return await withTimeout(fn(), timeoutMs);
     } catch (error: any) {
       lastError = error;
       
@@ -528,7 +528,7 @@ async function withFallbackSmart<T>(
     return await withRetry(async () => {
       const response = await getAI().models.generateContent(geminiConfig);
       return parseResult(response.text || '{}');
-    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`));
+    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini: ${reason}`), 12000);
   } catch (error: any) {
     markProviderFailure('gemini', error);
     geminiErrorMsg = error?.message || String(error);
@@ -547,7 +547,7 @@ async function withFallbackSmart<T>(
           throw new Error('Groq retornou lista de questoes vazia');
         }
         return parsed;
-      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`));
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Groq: ${reason}`), 12000);
     } catch (error: any) {
       markProviderFailure('groq', error);
       groqErrorMsg = error?.message || String(error);
@@ -565,7 +565,7 @@ async function withFallbackSmart<T>(
       return await withRetry(async () => {
         const text = await callOpenRouter(systemPrompt, userPrompt);
         return parseResult(text);
-      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`));
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `OpenRouter: ${reason}`), 12000);
     } catch (error: any) {
       markProviderFailure('openrouter', error);
       openrouterErrorMsg = error?.message || String(error);
@@ -588,7 +588,7 @@ async function withFallbackSmart<T>(
           throw new Error('NVIDIA retornou lista de questoes vazia');
         }
         return parsed;
-      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`));
+      }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `NVIDIA: ${reason}`), 12000);
     } catch (error: any) {
       markProviderFailure('nvidia', error);
       nvidiaErrorMsg = error?.message || String(error);
@@ -608,7 +608,7 @@ async function withFallbackSmart<T>(
     return await withRetry(async () => {
       const response = await getAI().models.generateContent(flashConfig);
       return parseResult(response.text || '{}');
-    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`));
+    }, 1, (attempt, max, reason) => onRetry?.(attempt, max, `Gemini Flash: ${reason}`), 12000);
   } catch (error: any) {
     markProviderFailure('gemini-flash', error);
     flashErrorMsg = error?.message || String(error);
