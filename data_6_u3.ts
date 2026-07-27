@@ -2,16 +2,18 @@ import { Unit } from './types.ts';
 
 export const unit3: Unit = {
   id: 'u3',
-  title: 'Unidade III: Geometria e Álgebra',
+  title: 'Unidade III: Geometria, Probabilidade e Dados',
   dateRange: '08 Jul - 29 Set',
-  description: 'Introdução à Álgebra (Igualdade), Plano Cartesiano e Geometria.',
+  description: 'Continuidade da Unidade III: Aulas 06-20 do ProfMathHub com as Missoes do Acerta Brasil e integracao das Aulas 16-22 da Unidade IV em probabilidade, tabelas e graficos.',
   color: 'bg-yellow-100 border-yellow-300 text-yellow-800',
   bnccSkills: [
     'EF06MA14: Propriedades da igualdade.',
     'EF06MA16: Plano cartesiano e coordenadas.',
     'EF06MA17: Prismas e Pirâmides (vértices, faces, arestas).',
     'EF06MA18/19: Polígonos e Triângulos.',
-    'EF06MA21: Retas paralelas, concorrentes e perpendiculares.'
+    'EF06MA21: Retas paralelas, concorrentes e perpendiculares.',
+    'EF06MA31: Probabilidade em experimentos simples.',
+    'EF06MA32: Leitura de tabelas e graficos.'
   ],
     items: [
      { id: 'l3-1', type: 'lesson', title: 'Aula 01 - Intro à Álgebra: Igualdade', skill: 'EF06MA14', complexity: 'Baixa', content: { intro: 'A balança da matemática.', development: ['Sinal de $=$ como equilíbrio.', 'O que faço de um lado, faço do outro.'], examples: [{question: 'Se $3 + 4 = 7$, então $3 + 4 + 2 = ?$?', answer: '$7 + 2 = 9$.'}], conclusion: 'Igualdade é balança equilibrada.' } },
@@ -43,6 +45,10 @@ export const unit3: Unit = {
      { id: 'ex3-3', type: 'exercise', title: 'Aula 22 - Bloco de Exercícios 3: Formas e Retas', questions: [{ question: 'Desenhe retas perpendiculares.', answer: 'Sinal de +' }, { question: 'Qual polígono tem 5 lados?', answer: 'Pentágono.' }] },
      { id: 'l3-23', type: 'lesson', title: 'Aula 23 - Revisão de Álgebra e Plano', skill: 'EF06MA14', complexity: 'Média', content: { intro: 'Revisando as balanças.', development: ['O que é igualdade.', 'Marcar pares ordenados no gráfico.'], examples: [], conclusion: 'Prontos para revisar o restante.' } },
      { id: 'l3-24', type: 'lesson', title: 'Aula 24 - Revisão de Geometria', skill: 'EF06MA17', complexity: 'Média', content: { intro: 'Revisando Formas.', development: ['V, F, A em Prismas e Pirâmides.', 'Polígonos e Retas.'], examples: [], conclusion: 'Prontos para as avaliações da Unidade.' } },
+
+
+     { id: 'p3-acerta-19', type: 'practical', title: 'Acerta Brasil - Missao 19: Prevendo o futuro', skill: 'EF06MA31', complexity: 'Média', duration: '31/08 a 04/09', practicalDescription: 'Selecionar as etapas da Missao 19, paginas 153-160, para trabalhar espaco amostral, eventos e probabilidades simples. Relacionar esta missao as Aulas 16-18 da Unidade IV do ProfMathHub.' },
+     { id: 'p3-acerta-20', type: 'practical', title: 'Acerta Brasil - Missao 20: Dados e apresentacoes', skill: 'EF06MA32', complexity: 'Média', duration: '08 a 11/09', practicalDescription: 'Selecionar as etapas da Missao 20, paginas 161-170, para ler tabelas e graficos, comparar frequencias e justificar conclusoes. Relacionar esta missao as Aulas 19-22 da Unidade IV do ProfMathHub.' },
 
      { 
        id: 'act3-1', type: 'activity', title: 'Atividade Avaliativa 1: Álgebra e Plano', skill: 'Geral', 
