@@ -5,6 +5,9 @@ export interface LessonContent {
   development: string[];
   examples: { question: string; answer: string }[];
   conclusion: string;
+  classwork?: string;
+  homework?: string;
+  alignment?: string;
 }
 
 export interface AssessmentQuestion {
