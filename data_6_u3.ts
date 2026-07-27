@@ -3,7 +3,7 @@ import { Unit } from './types.ts';
 export const unit3: Unit = {
   id: 'u3',
   title: 'Unidade III: Geometria, Probabilidade e Dados',
-  dateRange: '08 Jul - 29 Set',
+  dateRange: '29 Jul - 29 Set',
   description: 'Continuidade da Unidade III: Aulas 06-20 do ProfMathHub com as Missoes do Acerta Brasil e integracao das Aulas 16-22 da Unidade IV em probabilidade, tabelas e graficos.',
   color: 'bg-yellow-100 border-yellow-300 text-yellow-800',
   bnccSkills: [
