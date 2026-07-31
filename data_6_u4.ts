@@ -1,96 +1,1019 @@
 import { Unit } from './types.ts';
 
 export const unit4: Unit = {
-  id: 'u4',
-  title: 'Unidade IV: Grandezas, Medidas e Estatística',
-  dateRange: '30 Set - 15 Dez',
-  description: 'Comprimento, Massa, Tempo, Área, Volume, e Tratamento de Informação.',
-  color: 'bg-red-100 border-red-300 text-red-800',
-  bnccSkills: [
-    'EF06MA24: Medidas de comprimento, massa e capacidade.',
-    'EF06MA25: Medidas de tempo.',
-    'EF06MA28: Plantas baixas e escalas.',
-    'EF06MA29: Área e perímetro.',
-    'EF06MA31: Probabilidade.',
-    'EF06MA32: Gráficos e tabelas estatísticas.'
+  "id": "u4",
+  "title": "Unidade IV: Decimais, Grandezas e Medidas",
+  "dateRange": "05 Out - 30 Nov",
+  "description": "Notas resumidas para a 4ª unidade: conteudos da Unidade II, Aulas 15-23, e da Unidade IV, Aulas 01-15. AT1 em decimais, AT2 em grandezas e medidas, e prova de todos os conteudos em 30/11.",
+  "color": "bg-red-100 border-red-300 text-red-800",
+  "bnccSkills": [
+    "EF06MA08: representacao, comparacao e ordenacao de numeros decimais.",
+    "EF06MA11: operacoes e problemas com numeros decimais.",
+    "EF06MA13: porcentagens simples.",
+    "EF06MA24: medidas de comprimento, massa e capacidade.",
+    "EF06MA25: medidas de tempo e intervalos.",
+    "EF06MA28: plantas baixas e escalas.",
+    "EF06MA29: area e perimetro."
   ],
-  items: [
-     { id: 'l4-1', type: 'lesson', title: 'Aula 01 - Medidas de Comprimento', skill: 'EF06MA24', complexity: 'Baixa', content: { intro: 'O quão longo é isso?', development: ['Unidade padrão: Metro ($m$).', 'Múltiplos (km) e Submúltiplos (cm, mm).', 'A régua e a fita métrica.'], examples: [{question: 'Quantos centímetros tem em 1 metro?', answer: '$100cm$.'}], conclusion: 'Medir é comparar grandezas.' } },
-     { id: 'l4-2', type: 'lesson', title: 'Aula 02 - Conversão de Comprimento', skill: 'EF06MA24', complexity: 'Média', content: { intro: 'Trocando as réguas.', development: ['Andar com a vírgula para a direita (multiplicar).', 'Andar com a vírgula para a esquerda (dividir).'], examples: [{question: 'Converta $2,5m$ para centímetros.', answer: '$250cm$.'}], conclusion: 'Para unidades menores, multiplique. Maiores, divida.' } },
-     { id: 'p4-1', type: 'practical', title: 'Aula 03 - Prática: Medindo a Sala', skill: 'EF06MA24', complexity: 'Baixa', practicalDescription: 'Usando trenas, os alunos devem medir o comprimento, largura e porta da sala de aula, anotando as medidas em m e convertendo para cm e mm no caderno.' },
-     
-     { id: 'l4-4', type: 'lesson', title: 'Aula 04 - Medidas de Massa', skill: 'EF06MA24', complexity: 'Baixa', content: { intro: 'O peso das coisas.', development: ['Grama ($g$), Quilograma ($kg$), Tonelada ($t$).', 'Relação de $1000$ em $1000$.'], examples: [{question: 'Quantos $kg$ tem $1$ tonelada?', answer: '$1000 kg$.'}], conclusion: 'Kilo significa mil.' } },
-     { id: 'l4-5', type: 'lesson', title: 'Aula 05 - Medidas de Capacidade', skill: 'EF06MA24', complexity: 'Baixa', content: { intro: 'O espaço dos líquidos.', development: ['Litro ($L$) e Mililitro ($mL$).', 'Relação: $1 L = 1000 mL$.'], examples: [{question: 'Quantos $mL$ tem em $1,5L$?', answer: '$1500mL$.'}], conclusion: 'Garrafas e remédios usam essa grandeza.' } },
-     { id: 'ex4-1', type: 'exercise', title: 'Aula 06 - Bloco de Exercícios 1: Comprimento, Massa e Volume', questions: [{ question: 'Converta $3km$ em metros.', answer: '$3000m$' }, { question: 'Converta $2500g$ em kg.', answer: '$2,5kg$' }] },
-     
-     { id: 'l4-7', type: 'lesson', title: 'Aula 07 - Medidas de Tempo', skill: 'EF06MA25', complexity: 'Média', content: { intro: 'O relógio não para.', development: ['Base sexagesimal (60).', '1 hora = 60 min, 1 min = 60 s.', 'Leitura de relógios analógicos e digitais.'], examples: [{question: 'Quantos minutos tem $2$ horas?', answer: '$120$ minutos.'}], conclusion: 'O tempo muda a cada 60.' } },
-     { id: 'l4-8', type: 'lesson', title: 'Aula 08 - Intervalos de Tempo', skill: 'EF06MA25', complexity: 'Alta', content: { intro: 'Quanto tempo passou?', development: ['Subtração de horários.', 'Emprestar horas (1 hora vira 60 min, não 10!).'], examples: [{question: 'De 10h45 até 12h15 passaram quanto tempo?', answer: '1h30min.'}], conclusion: 'Cuidado extra ao subtrair tempo.' } },
-     { id: 'p4-2', type: 'practical', title: 'Aula 09 - Prática: O Chef de Cozinha', skill: 'EF06MA24', complexity: 'Média', practicalDescription: 'Os alunos trazem receitas culinárias. Devem calcular os tempos totais de forno/preparo e converter as medidas dos ingredientes (ex: 500g para 0,5kg).' },
-     
-     { id: 'l4-10', type: 'lesson', title: 'Aula 10 - Perímetro de Polígonos', skill: 'EF06MA29', complexity: 'Baixa', content: { intro: 'O contorno da cerca.', development: ['Soma de todos os lados.', 'Polígonos regulares (lados iguais).'], examples: [{question: 'Perímetro de um quadrado de lado $5cm$.', answer: '$5+5+5+5 = 20cm$.'}], conclusion: 'Perímetro = Comprimento da Borda.' } },
-     { id: 'l4-11', type: 'lesson', title: 'Aula 11 - Área de Retângulos e Quadrados', skill: 'EF06MA29', complexity: 'Média', content: { intro: 'O preenchimento do piso.', development: ['Medida de superfície ($m^2$).', 'Fórmula da Área do Retângulo: Base $\\times$ Altura.'], examples: [{question: 'Área de sala 4m por 5m.', answer: '$20m^2$.'}], conclusion: 'Área = Preenchimento (multiplica 2 lados).' } },
-     { id: 'ex4-2', type: 'exercise', title: 'Aula 12 - Bloco de Exercícios 2: Área e Perímetro', questions: [{ question: 'Área de um quadrado de lado $6m$.', answer: '$36m^2$' }, { question: 'Perímetro do mesmo quadrado.', answer: '$24m$' }] },
-     
-     { id: 'l4-13', type: 'lesson', title: 'Aula 13 - Introdução a Escala', skill: 'EF06MA28', complexity: 'Alta', content: { intro: 'O mundo no papel.', development: ['Escala: Desenho vs Tamanho Real.', 'Relação de proporção simples (ex: $1:100$).'], examples: [{question: 'Escala 1:100. Uma parede de 4m no desenho tem quantos cm?', answer: '$4cm$.'}], conclusion: 'Escala é uma fração que diminui a realidade.' } },
-     { id: 'p4-3', type: 'practical', title: 'Aula 14 - Prática: A Planta Baixa da Sala', skill: 'EF06MA28', complexity: 'Alta', practicalDescription: 'Com as medidas da Aula 03, desenhar uma planta baixa da sala de aula em papel milimetrado usando escala.' },
-     { id: 'l4-15', type: 'lesson', title: 'Aula 15 - Resolução de Problemas com Medidas', skill: 'EF06MA29', complexity: 'Alta', content: { intro: 'Aplicando no mundo real.', development: ['Interpretar textos longos.', 'Mistura de unidades em um problema só.'], examples: [{question: 'Reformar quadra $10\\times20m$. R$ 5 o metro. Custo?', answer: 'Área = $200$. Custo = $R$ 1000$.'}], conclusion: 'Organize os dados antes de calcular.' } },
-     
-     { id: 'l4-16', type: 'lesson', title: 'Aula 16 - Introdução à Probabilidade', skill: 'EF06MA31', complexity: 'Média', content: { intro: 'Qual a chance?', development: ['Espaço Amostral (tudo o que pode acontecer).', 'Evento (o que eu quero).'], examples: [{question: 'Ao lançar um dado, quais os resultados possíveis?', answer: '1, 2, 3, 4, 5, 6.'}], conclusion: 'Conheça todas as opções antes de apostar.' } },
-     { id: 'l4-17', type: 'lesson', title: 'Aula 17 - Cálculo Simples de Probabilidade', skill: 'EF06MA31', complexity: 'Alta', content: { intro: 'A matemática da sorte.', development: ['Fórmula: (O que eu quero) / (Total de opções).', 'Transformar a fração em porcentagem.'], examples: [{question: 'Qual a chance de tirar par no dado?', answer: '$3/6 = 1/2 = 50\\%$.'}], conclusion: 'A probabilidade é sempre entre 0 e 100%.' } },
-     { id: 'ex4-3', type: 'exercise', title: 'Aula 18 - Bloco de Exercícios 3: Escala e Probabilidade', questions: [{ question: 'Lançar uma moeda, chance de Cara?', answer: '$1/2$ ou $50\\%$' }, { question: 'Escala 1:10. Desenho de 5cm. Real?', answer: '$50cm$' }] },
-     
-     { id: 'l4-19', type: 'lesson', title: 'Aula 19 - Estatística: Gráficos de Barras', skill: 'EF06MA32', complexity: 'Baixa', content: { intro: 'Desenhar números para comparar rápido.', development: ['Eixos X e Y.', 'Leitura de valores em barras verticais e horizontais.'], examples: [{question: 'Se a barra A é o dobro da B, o que significa?', answer: 'A tem o dobro da quantidade.'}], conclusion: 'Um bom gráfico não precisa de texto.' } },
-     { id: 'l4-20', type: 'lesson', title: 'Aula 20 - Estatística: Gráficos de Setores (Pizza)', skill: 'EF06MA32', complexity: 'Média', content: { intro: 'As partes do todo.', development: ['Relação do gráfico de pizza com porcentagem.', '100% é a pizza inteira.'], examples: [{question: 'No gráfico de pizza, a metade é que porcentagem?', answer: '$50\\%$.'}], conclusion: 'Perfeito para ver fatias de um orçamento.' } },
-     { id: 'p4-4', type: 'practical', title: 'Aula 21 - Prática: A Pesquisa da Turma', skill: 'EF06MA32', complexity: 'Alta', practicalDescription: 'Alunos fazem uma pesquisa na sala ("Sabor de sorvete favorito"), montam uma tabela de frequências no quadro e, depois, desenham um gráfico de barras com os resultados.' },
-     
-     { id: 'l4-22', type: 'lesson', title: 'Aula 22 - Leitura de Tabelas Complexas', skill: 'EF06MA32', complexity: 'Média', content: { intro: 'A planilha da vida.', development: ['Tabelas de dupla entrada (linhas e colunas).', 'Cruzamento de dados.'], examples: [{question: 'Para que serve a linha de "Total"?', answer: 'Para checar se todos foram contados.'}], conclusion: 'Tabela é o esqueleto da informação.' } },
-     { id: 'l4-23', type: 'lesson', title: 'Aula 23 - Revisão: Grandezas e Geometria', skill: 'EF06MA24', complexity: 'Média', content: { intro: 'Revisando as fórmulas.', development: ['Conversões e Áreas.'], examples: [], conclusion: 'Dúvidas e treino.' } },
-     { id: 'l4-24', type: 'lesson', title: 'Aula 24 - Revisão: Probabilidade e Estatística', skill: 'EF06MA31', complexity: 'Média', content: { intro: 'Revisando a chance.', development: ['Frações de probabilidade e Leitura Gráfica.'], examples: [], conclusion: 'Prontos para as avaliações finais.' } },
-
-     { 
-       id: 'act4-1', type: 'activity', title: 'Atividade Avaliativa 1: Medidas e Geometria', skill: 'Geral', 
-       questions: [
-         { question: 'Transforme $5,4 km$ em metros.', answer: '$5400 m$.', spaceForWork: true },
-         { question: 'Calcule o perímetro de um retângulo de $8cm$ por $3cm$.', answer: '$22 cm$.', spaceForWork: true },
-         { question: 'Qual a área de um quadrado de $7m$ de lado?', answer: '$49 m^2$.', spaceForWork: true },
-         { question: 'Uma aula começou $07h30$ e durou $50$ minutos. Que horas terminou?', answer: '$08h20$.', spaceForWork: true },
-         { question: 'Converta $2500 g$ em $kg$.', answer: '$2,5 kg$.', spaceForWork: true },
-         { question: 'Quantos $mL$ há em $3,2 L$?', answer: '$3200 mL$.', spaceForWork: true },
-         { question: 'Um terreno retangular tem $15m$ por $8m$. Qual o perímetro da cerca necessária?', answer: '$46 m$.', spaceForWork: true, imageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='110' viewBox='0 0 180 110'%3E%3Crect x='10' y='10' width='160' height='80' fill='%23dbeafe' stroke='%232563eb' stroke-width='2' stroke-dasharray='6,3'/%3E%3Ctext x='90' y='100' font-size='12' fill='%231e40af' font-family='Arial' text-anchor='middle'%3E15m%3C/text%3E%3Ctext x='177' y='55' font-size='12' fill='%231e40af' font-family='Arial' text-anchor='end'%3E8m%3C/text%3E%3C/svg%3E" },
-         { question: 'Converta $3$ horas em minutos.', answer: '$180$ minutos.', spaceForWork: true },
-         { question: 'Uma piscina tem $2m$ de comprimento, $1,5m$ de largura e $0,5m$ de profundidade. Qual a área do fundo?', answer: '$3 m^2$.', spaceForWork: true },
-         { question: 'Se em um mapa (escala 1:200) uma parede mede $3cm$, qual o tamanho real?', answer: '$600 cm = 6 m$.', spaceForWork: true }
-       ] 
-     },
-     { 
-       id: 'act4-2', type: 'activity', title: 'Atividade Avaliativa 2: Tratamento de Dados', skill: 'Geral', 
-       questions: [
-         { question: 'Ao lançar um dado de $6$ faces, qual a chance de sair o número $5$?', answer: '$1/6$.', spaceForWork: true },
-         { question: 'Em um saquinho há $3$ bolas vermelhas e $2$ azuis. Chance de tirar azul?', answer: '$2/5$.', spaceForWork: true },
-         { question: 'Por que o gráfico de pizza (setores) é ideal para representar $100\\%$ do total?', answer: 'Pois o círculo completo representa o todo ($100\\%$).', spaceForWork: true },
-         { question: 'Um dado é lançado uma vez. Qual a probabilidade de sair um número par?', answer: '$3/6 = 1/2$.', spaceForWork: true },
-         { question: 'Em uma pesquisa, $15$ de $50$ alunos preferem futebol. Qual a porcentagem?', answer: '$30\\%$.', spaceForWork: true },
-         { question: 'Complete: gráfico de ______ é bom para comparar quantidades.', answer: 'Barras.', spaceForWork: false },
-         { question: 'Uma moeda é lançada $2$ vezes. Quantos resultados possíveis existem?', answer: '$4$ resultados (CC, CK, KC, KK).', spaceForWork: true },
-         { question: 'O que é espaço amostral?', answer: 'O conjunto de todos os resultados possíveis de um experimento.', spaceForWork: true },
-         { question: 'Em uma urna há $4$ bolas brancas e $6$ pretas. Qual a probabilidade de tirar branca?', answer: '$4/10 = 2/5$.', spaceForWork: true },
-         { question: 'Qual tipo de gráfico é melhor para mostrar a evolução de um dado ao longo do tempo?', answer: 'Gráfico de linha.', spaceForWork: false }
-       ] 
-     },
-     { 
-       id: 'exam4', type: 'exam', title: 'Prova da Unidade IV', skill: 'Geral', 
-       questions: [
-         { question: 'Converta $1200 mL$ para Litros.', answer: '$1,2 L$.', spaceForWork: true },
-         { question: 'Um terreno tem $10m$ de largura e $25m$ de comprimento. Qual a área?', answer: '$250 m^2$.', spaceForWork: true, imageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='100' viewBox='0 0 180 100'%3E%3Crect x='10' y='10' width='160' height='70' fill='%23d1fae5' stroke='%23059669' stroke-width='2'/%3E%3Ctext x='90' y='90' font-size='11' fill='%23065f46' font-family='Arial' text-anchor='middle'%3E25m%3C/text%3E%3Ctext x='5' y='50' font-size='11' fill='%23065f46' font-family='Arial' writing-mode='tb'%3E10m%3C/text%3E%3Ctext x='90' y='52' font-size='13' fill='%23065f46' font-family='Arial' text-anchor='middle' font-weight='bold'%3EÁrea%3D?%3C/text%3E%3C/svg%3E" },
-         { question: 'Um carro andou $2h15min$ e parou. Depois andou mais $1h50min$. Qual o tempo total de viagem?', answer: '$4h05min$.', spaceForWork: true },
-         { question: 'Se em um mapa (escala 1:1000) a distância é $5cm$, qual a real?', answer: '$5000 cm = 50 m$.', spaceForWork: true },
-         { question: 'Lançando um dado, qual a probabilidade de sair um número ímpar?', answer: '$3/6$ ou $1/2$ ($50\\%$).', spaceForWork: true },
-         { question: 'Qual o perímetro de um triângulo equilátero de lado $6cm$?', answer: '$18 cm$.', spaceForWork: true, imageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='130' viewBox='0 0 140 130'%3E%3Cpolygon points='70,10 15,115 125,115' fill='%23fef3c7' stroke='%23d97706' stroke-width='2'/%3E%3Ctext x='70' y='125' font-size='12' fill='%2392400e' font-family='Arial' text-anchor='middle'%3E6cm%3C/text%3E%3Ctext x='35' y='65' font-size='12' fill='%2392400e' font-family='Arial' transform='rotate(-60,35,65)'%3E6cm%3C/text%3E%3Ctext x='105' y='65' font-size='12' fill='%2392400e' font-family='Arial' transform='rotate(60,105,65)'%3E6cm%3C/text%3E%3C/svg%3E" },
-         { question: 'Quantos gramas existem em $3,5 kg$?', answer: '$3500 g$.', spaceForWork: true },
-         { question: 'Um gráfico mostra 40 alunos. $25\\%$ tem olhos azuis. Quantos são?', answer: '$10$ alunos.', spaceForWork: true },
-         { question: 'Desenhe um retângulo e escreva a fórmula para calcular sua área.', answer: 'Área = Base $\\times$ Altura.', spaceForWork: true },
-         { question: 'Um filme começou às $19h45$ e terminou às $21h30$. Quanto tempo durou?', answer: '$1h45min$.', spaceForWork: true }
-       ] 
-     }
+  "items": [
+    {
+      "id": "l4-1",
+      "type": "lesson",
+      "title": "Aula 01 - Decimais: leitura e valor posicional",
+      "skill": "EF06MA08",
+      "duration": "05/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Os numeros decimais aparecem em dinheiro, medidas e resultados de medidas.",
+        "development": [
+          "Reconhecer parte inteira e parte decimal.",
+          "Ler decimos, centesimos e milesimos.",
+          "Relacionar cada algarismo ao seu valor posicional."
+        ],
+        "examples": [
+          {
+            "question": "Como se le 2,35?",
+            "answer": "Dois inteiros e trinta e cinco centesimos."
+          }
+        ],
+        "conclusion": "A virgula separa a parte inteira da parte decimal.",
+        "classwork": "Quadro de valor posicional e leitura de precos do cotidiano.",
+        "homework": "Escrever por extenso 0,7; 1,25; 3,408.",
+        "alignment": "Retomada da Unidade II, Aula 15. Missao 10, p. 81-88."
+      }
+    },
+    {
+      "id": "l4-2",
+      "type": "lesson",
+      "title": "Aula 02 - Fracao decimal e numero decimal",
+      "skill": "EF06MA08",
+      "duration": "06/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Uma fracao com denominador 10, 100 ou 1000 pode ser escrita como decimal.",
+        "development": [
+          "Transformar decimos, centesimos e milesimos em decimais.",
+          "Transformar decimais exatos em fracoes decimais.",
+          "Manter a equivalencia ao acrescentar zeros."
+        ],
+        "examples": [
+          {
+            "question": "Escreva 3/100 em decimal.",
+            "answer": "0,03."
+          }
+        ],
+        "conclusion": "Fracao decimal e numero decimal sao duas representacoes do mesmo valor.",
+        "classwork": "Cartoes de pareamento entre fracoes e decimais.",
+        "homework": "Converter 6/10, 45/100 e 8/1000.",
+        "alignment": "Retomada da Unidade II, Aula 16. Missao 10, p. 81-88."
+      }
+    },
+    {
+      "id": "l4-3",
+      "type": "lesson",
+      "title": "Aula 03 - Comparacao, ordenacao e reta numerica",
+      "skill": "EF06MA08",
+      "duration": "07/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Comparar decimais exige observar primeiro a parte inteira e depois as casas decimais.",
+        "development": [
+          "Completar casas com zeros sem mudar o valor.",
+          "Usar >, < e =.",
+          "Localizar decimais entre inteiros na reta numerica."
+        ],
+        "examples": [
+          {
+            "question": "Qual e maior: 0,5 ou 0,45?",
+            "answer": "0,50 > 0,45."
+          }
+        ],
+        "conclusion": "Zeros a direita da parte decimal ajudam a comparar.",
+        "classwork": "Reta de 0 a 2 e ordenacao de cartoes decimais.",
+        "homework": "Ordenar 0,8; 0,08; 0,75; 1,2.",
+        "alignment": "Retomada da Unidade II, Aula 17. Missao 10, p. 81-88."
+      }
+    },
+    {
+      "id": "l4-4",
+      "type": "lesson",
+      "title": "Aula 04 - Adicao e subtracao de decimais",
+      "skill": "EF06MA11",
+      "duration": "08/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Operar decimais fica mais seguro quando as virgulas ficam alinhadas.",
+        "development": [
+          "Alinhar unidades, decimos e centesimos.",
+          "Completar casas com zeros.",
+          "Estimar o resultado antes de calcular."
+        ],
+        "examples": [
+          {
+            "question": "Calcule 3,45 + 12,2.",
+            "answer": "15,65."
+          }
+        ],
+        "conclusion": "Na adicao e na subtracao, a virgula deve ficar na mesma coluna.",
+        "classwork": "Problemas de compras e troco no quadro.",
+        "homework": "Calcular 8,5 - 2,75 e 4,08 + 1,7.",
+        "alignment": "Retomada da Unidade II, Aula 18. Missao 14, p. 113-120."
+      }
+    },
+    {
+      "id": "l4-5",
+      "type": "lesson",
+      "title": "Aula 05 - Multiplicacao de decimais",
+      "skill": "EF06MA11",
+      "duration": "09/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "A multiplicacao de decimais pode representar preco por quantidade e medidas repetidas.",
+        "development": [
+          "Multiplicar sem as virgulas.",
+          "Contar as casas decimais dos fatores.",
+          "Conferir a ordem de grandeza do resultado."
+        ],
+        "examples": [
+          {
+            "question": "Calcule 1,2 x 0,3.",
+            "answer": "0,36."
+          }
+        ],
+        "conclusion": "Depois da multiplicacao, as casas decimais dos fatores determinam a posicao da virgula.",
+        "classwork": "Tabela de precos por quantidade.",
+        "homework": "Resolver 2,5 x 1,4 e 0,6 x 0,08.",
+        "alignment": "Retomada da Unidade II, Aula 19. Missao 14, p. 113-120."
+      }
+    },
+    {
+      "id": "l4-6",
+      "type": "lesson",
+      "title": "Aula 06 - Divisao de decimais",
+      "skill": "EF06MA11",
+      "duration": "12/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Dividir decimais permite encontrar preco por unidade, medida por parte e quantidade de grupos.",
+        "development": [
+          "Tornar o divisor inteiro quando necessario.",
+          "Usar zeros para continuar a divisao.",
+          "Relacionar dividendo, divisor e quociente."
+        ],
+        "examples": [
+          {
+            "question": "Calcule 3 / 0,5.",
+            "answer": "6."
+          }
+        ],
+        "conclusion": "Na divisao, podemos multiplicar dividendo e divisor por 10, 100 ou 1000 sem alterar o quociente.",
+        "classwork": "Divisao de valores de uma lista de compras.",
+        "homework": "Resolver 6 / 0,5 e 12,6 / 3.",
+        "alignment": "Retomada da Unidade II, Aula 20. Missao 14, p. 113-120."
+      }
+    },
+    {
+      "id": "l4-7",
+      "type": "lesson",
+      "title": "Aula 07 - Problemas com decimais e dinheiro",
+      "skill": "EF06MA11",
+      "duration": "13/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Os dados de um problema precisam ser organizados antes da operacao.",
+        "development": [
+          "Identificar unidade, quantidade e pergunta.",
+          "Escolher adicao, subtracao, multiplicacao ou divisao.",
+          "Escrever a resposta com unidade monetaria."
+        ],
+        "examples": [
+          {
+            "question": "Duas compras custam R$ 12,50 e R$ 7,80. Qual o total?",
+            "answer": "R$ 20,30."
+          }
+        ],
+        "conclusion": "A operacao correta nasce da leitura do contexto.",
+        "classwork": "Mercadinho matematico com precos decimais.",
+        "homework": "Criar e resolver um problema de compra com tres itens.",
+        "alignment": "Retomada da Unidade II, Aula 21. Missao 14, p. 113-120."
+      }
+    },
+    {
+      "id": "l4-8",
+      "type": "lesson",
+      "title": "Aula 08 - Porcentagem como fracao e decimal",
+      "skill": "EF06MA13",
+      "duration": "14/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Porcentagens simples podem ser relacionadas a fracoes de denominador 100 e a decimais.",
+        "development": [
+          "Relacionar 10%, 25%, 50% e 100% a fracoes e decimais.",
+          "Calcular porcentagens simples por decomposicao.",
+          "Distinguir valor decimal de porcentagem."
+        ],
+        "examples": [
+          {
+            "question": "Quanto e 10% de 250?",
+            "answer": "25."
+          }
+        ],
+        "conclusion": "Porcentagem e uma forma de representar uma parte de cada 100.",
+        "classwork": "Quadro de equivalencias entre porcentagem, fracao e decimal.",
+        "homework": "Calcular 25% de 80 e escrever 0,4 como porcentagem.",
+        "alignment": "Retomada da Unidade II, Aulas 22-23. Missao 18, p. 145-152."
+      }
+    },
+    {
+      "id": "l4-9",
+      "type": "lesson",
+      "title": "Aula 09 - Revisao dirigida para a AT1",
+      "skill": "EF06MA08/11/13",
+      "duration": "15/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "A revisao organiza os procedimentos que serao avaliados.",
+        "development": [
+          "Leitura e representacao de decimais.",
+          "Comparacao, operacoes e problemas.",
+          "Porcentagens simples em situacoes reais."
+        ],
+        "examples": [],
+        "conclusion": "Conferir a virgula, a unidade e a coerencia do resultado.",
+        "classwork": "Estacoes de revisao com um exemplo de cada habilidade.",
+        "homework": "Refazer os dois itens em que houve mais dificuldade.",
+        "alignment": "Revisao antes da AT1; foco principal em decimais."
+      }
+    },
+    {
+      "id": "act4-1",
+      "type": "activity",
+      "title": "AT1 - Decimais",
+      "skill": "Geral",
+      "duration": "16/10 | 50 min",
+      "questions": [
+        {
+          "question": "Escreva por extenso o numero 3,08.",
+          "answer": "Tres inteiros e oito centesimos.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Transforme 7/10 em numero decimal.",
+          "answer": "0,7.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Compare: 0,6 ___ 0,56.",
+          "answer": "0,6 > 0,56.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Calcule: 4,75 + 2,8.",
+          "answer": "7,55.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule: 9,2 - 3,45.",
+          "answer": "5,75.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule: 1,2 x 0,3.",
+          "answer": "0,36.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule: 3 / 0,5.",
+          "answer": "6.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Uma compra custa R$ 12,50 e outra custa R$ 7,80. Qual o total?",
+          "answer": "R$ 20,30.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule 25% de 80.",
+          "answer": "20.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Ordene do menor para o maior: 0,9; 0,09; 0,99.",
+          "answer": "0,09; 0,9; 0,99.",
+          "spaceForWork": true
+        }
+      ]
+    },
+    {
+      "id": "l4-10",
+      "type": "lesson",
+      "title": "Aula 10 - Medidas de comprimento (IV.01)",
+      "skill": "EF06MA24",
+      "duration": "19/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Metro como unidade principal.",
+          "Quilometro, centimetro e milimetro.",
+          "Escolha da unidade adequada ao objeto."
+        ],
+        "examples": [],
+        "conclusion": "Uma medida precisa de unidade e instrumento adequados.",
+        "classwork": "Medir objetos da sala com regua e fita metrica.",
+        "homework": "Listar tres objetos e a unidade mais adequada.",
+        "alignment": "Missao 13, p. 105-112."
+      }
+    },
+    {
+      "id": "l4-11",
+      "type": "lesson",
+      "title": "Aula 11 - Conversao de comprimento (IV.02)",
+      "skill": "EF06MA24",
+      "duration": "20/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Relacao entre m, cm, mm e km.",
+          "Multiplicar ou dividir por 10, 100 e 1000.",
+          "Conferir se a unidade final faz sentido."
+        ],
+        "examples": [],
+        "conclusion": "Converter e reescrever uma mesma medida sem mudar seu valor.",
+        "classwork": "Tabela de conversoes com medidas da escola.",
+        "homework": "Converter 2,5 m para cm e 3500 m para km.",
+        "alignment": "Missao 13, p. 105-112."
+      }
+    },
+    {
+      "id": "l4-12",
+      "type": "practical",
+      "title": "Aula 12 - Pratica: medindo a sala (IV.03)",
+      "skill": "EF06MA24",
+      "duration": "21/10 | 50 min",
+      "complexity": "Média",
+      "practicalDescription": "Medir comprimento, largura, porta e quadro; registrar em m e cm."
+    },
+    {
+      "id": "l4-13",
+      "type": "lesson",
+      "title": "Aula 13 - Medidas de massa (IV.04)",
+      "skill": "EF06MA24",
+      "duration": "22/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Grama, quilograma e tonelada representam massas em escalas diferentes.",
+          "Relacionar kg e g.",
+          "Escolher a unidade conforme o objeto."
+        ],
+        "examples": [],
+        "conclusion": "Em conversoes de massa, 1 kg = 1000 g.",
+        "classwork": "Classificar objetos por massa estimada.",
+        "homework": "Converter 2,5 kg para g e 3500 g para kg.",
+        "alignment": "Missao 13, p. 105-112."
+      }
+    },
+    {
+      "id": "l4-14",
+      "type": "lesson",
+      "title": "Aula 14 - Medidas de capacidade (IV.05)",
+      "skill": "EF06MA24",
+      "duration": "23/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Litro e mililitro medem a capacidade de recipientes.",
+          "Relacionar L e mL.",
+          "Diferenciar capacidade de massa."
+        ],
+        "examples": [],
+        "conclusion": "Em conversoes de capacidade, 1 L = 1000 mL.",
+        "classwork": "Comparar embalagens e estimar capacidades.",
+        "homework": "Converter 1,75 L para mL e 2500 mL para L.",
+        "alignment": "Missao 13, p. 105-112."
+      }
+    },
+    {
+      "id": "l4-15",
+      "type": "lesson",
+      "title": "Aula 15 - Exercicios de conversao (IV.06)",
+      "skill": "EF06MA24",
+      "duration": "26/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Conversoes aparecem juntas em problemas do cotidiano.",
+          "Organizar dados em tabela.",
+          "Usar estimativa para detectar erro."
+        ],
+        "examples": [],
+        "conclusion": "A unidade final deve responder ao que o problema pergunta.",
+        "classwork": "Lista curta com comprimento, massa e capacidade.",
+        "homework": "Corrigir e explicar um erro de conversao.",
+        "alignment": "Missao 13, p. 105-112."
+      }
+    },
+    {
+      "id": "l4-16",
+      "type": "lesson",
+      "title": "Aula 16 - Medidas de tempo (IV.07)",
+      "skill": "EF06MA25",
+      "duration": "27/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "O tempo usa relacoes de 60.",
+          "Hora, minuto e segundo.",
+          "Leitura de horarios analogicos e digitais."
+        ],
+        "examples": [],
+        "conclusion": "1 h = 60 min e 1 min = 60 s.",
+        "classwork": "Montar uma linha do tempo da rotina escolar.",
+        "homework": "Converter 3 h para minutos e 150 min para horas e minutos.",
+        "alignment": "Aplicacao de grandezas; atividade autoral."
+      }
+    },
+    {
+      "id": "l4-17",
+      "type": "lesson",
+      "title": "Aula 17 - Intervalos de tempo (IV.08)",
+      "skill": "EF06MA25",
+      "duration": "28/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Calcular duracao exige comparar horario inicial e final.",
+          "Quando necessario, trocar 1 h por 60 min.",
+          "Verificar se o resultado e plausivel."
+        ],
+        "examples": [],
+        "conclusion": "A subtracao de horarios usa base 60, nao base 10.",
+        "classwork": "Resolver intervalos da entrada, recreio e saida.",
+        "homework": "Calcular o intervalo de 9h45 a 12h15.",
+        "alignment": "Aplicacao de grandezas; atividade autoral."
+      }
+    },
+    {
+      "id": "l4-18",
+      "type": "practical",
+      "title": "Aula 18 - Pratica: medidas em uma receita (IV.09)",
+      "skill": "EF06MA24/25",
+      "duration": "29/10 | 50 min",
+      "complexity": "Média",
+      "practicalDescription": "Adaptar uma receita e calcular tempo total e medidas."
+    },
+    {
+      "id": "l4-19",
+      "type": "lesson",
+      "title": "Aula 19 - Perimetro de poligonos (IV.10)",
+      "skill": "EF06MA29",
+      "duration": "30/10 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Perimetro e o comprimento do contorno.",
+          "Somar todos os lados.",
+          "Usar unidade linear."
+        ],
+        "examples": [],
+        "conclusion": "Perimetro mede a borda, por isso sua unidade nao e quadrada.",
+        "classwork": "Medir e calcular o contorno de figuras em malha.",
+        "homework": "Calcular o perimetro de um retangulo de 8 cm por 3 cm.",
+        "alignment": "Missao 9, p. 73-80."
+      }
+    },
+    {
+      "id": "l4-20",
+      "type": "lesson",
+      "title": "Aula 20 - Area de retangulos e quadrados (IV.11)",
+      "skill": "EF06MA29",
+      "duration": "02/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Area mede a superficie ocupada.",
+          "Contar quadradinhos e usar base x altura.",
+          "Escrever unidade quadrada."
+        ],
+        "examples": [],
+        "conclusion": "Area de retangulo = comprimento x largura.",
+        "classwork": "Cobrir figuras com quadradinhos e comparar areas.",
+        "homework": "Calcular a area de uma sala de 5 m por 4 m.",
+        "alignment": "Missao 9, p. 73-80."
+      }
+    },
+    {
+      "id": "l4-21",
+      "type": "lesson",
+      "title": "Aula 21 - Exercicios de area e perimetro (IV.12)",
+      "skill": "EF06MA29",
+      "duration": "03/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Area e perimetro respondem perguntas diferentes.",
+          "Uma figura pode ter mesmo perimetro e area diferente.",
+          "Conferir a unidade da resposta."
+        ],
+        "examples": [],
+        "conclusion": "Area preenche; perimetro contorna.",
+        "classwork": "Quadro comparativo em malha quadriculada.",
+        "homework": "Para um quadrado de lado 6 m, calcule area e perimetro.",
+        "alignment": "Missao 9, p. 73-80."
+      }
+    },
+    {
+      "id": "l4-22",
+      "type": "lesson",
+      "title": "Aula 22 - Introducao a escala (IV.13)",
+      "skill": "EF06MA28",
+      "duration": "04/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Escala relaciona desenho e tamanho real.",
+          "Ler a razao 1:n.",
+          "Manter a mesma unidade antes de comparar."
+        ],
+        "examples": [],
+        "conclusion": "Na escala 1:100, 1 cm no desenho representa 100 cm reais.",
+        "classwork": "Interpretar planta simples de uma sala.",
+        "homework": "Em escala 1:100, 4 cm representam 4 m.",
+        "alignment": "Missao 8, p. 65-72."
+      }
+    },
+    {
+      "id": "l4-23",
+      "type": "practical",
+      "title": "Aula 23 - Pratica: planta baixa da sala (IV.14)",
+      "skill": "EF06MA28",
+      "duration": "05/11 | 50 min",
+      "complexity": "Média",
+      "practicalDescription": "Desenhar a sala em escala e indicar porta, quadro e carteiras."
+    },
+    {
+      "id": "l4-24",
+      "type": "lesson",
+      "title": "Aula 24 - Problemas com medidas (IV.15)",
+      "skill": "EF06MA24/25/28/29",
+      "duration": "06/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "As grandezas ajudam a descrever e organizar situacoes reais.",
+        "development": [
+          "Problemas reais misturam unidades, tempo, area, perimetro e escala.",
+          "Separar dados, pergunta e operacoes.",
+          "Apresentar resultado com unidade."
+        ],
+        "examples": [],
+        "conclusion": "Resolver exige selecionar grandezas e procedimentos, nao apenas aplicar uma formula.",
+        "classwork": "Problema integrado de reforma de uma sala ou quadra.",
+        "homework": "Resolver um problema com duas grandezas e justificar as unidades.",
+        "alignment": "Missoes 8, 9 e 13; p. 65-80 e 105-112."
+      }
+    },
+    {
+      "id": "l4-25",
+      "type": "lesson",
+      "title": "Aula 25 - Problemas integrados de conversao",
+      "skill": "EF06MA24",
+      "duration": "09/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Conversoes sao ferramentas para comparar medidas e tomar decisoes.",
+        "development": [
+          "Selecionar unidade de resposta.",
+          "Usar tabela de equivalencias.",
+          "Estimar antes e conferir depois."
+        ],
+        "examples": [
+          {
+            "question": "Converta 2,4 L para mL.",
+            "answer": "2400 mL."
+          }
+        ],
+        "conclusion": "A unidade escolhida precisa combinar com a pergunta.",
+        "classwork": "Oficina com estações de comprimento, massa e capacidade.",
+        "homework": "Resolver dois problemas e indicar a unidade usada.",
+        "alignment": "Consolidacao da Missao 13, p. 105-112."
+      }
+    },
+    {
+      "id": "l4-26",
+      "type": "lesson",
+      "title": "Aula 26 - Problemas de tempo, massa e capacidade",
+      "skill": "EF06MA24/25",
+      "duration": "10/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Uma rotina ou receita pode reunir varias grandezas.",
+        "development": [
+          "Ler medidas em uma tabela.",
+          "Somar intervalos de tempo.",
+          "Converter antes de comparar."
+        ],
+        "examples": [
+          {
+            "question": "Quanto e 2h35 + 1h45?",
+            "answer": "4h20."
+          }
+        ],
+        "conclusion": "Grandezas diferentes nao devem ser somadas sem organizar suas unidades.",
+        "classwork": "Resolver uma situacao de preparo e transporte.",
+        "homework": "Criar uma tabela com tres grandezas e seus valores.",
+        "alignment": "Aplicacao das Aulas IV.04-IV.09."
+      }
+    },
+    {
+      "id": "l4-27",
+      "type": "lesson",
+      "title": "Aula 27 - Oficina Acerta: Missao 13",
+      "skill": "EF06MA24",
+      "duration": "11/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "A Missao 13 retoma conversoes de unidades em problemas contextualizados.",
+        "development": [
+          "Selecionar exercicios de conversao.",
+          "Explicar o fator usado.",
+          "Corrigir com justificativa."
+        ],
+        "examples": [
+          {
+            "question": "Em 3,5 kg, quantos gramas ha?",
+            "answer": "3500 g."
+          }
+        ],
+        "conclusion": "Converter e explicar o fator de multiplicacao ou divisao.",
+        "classwork": "Selecionar e resolver os itens essenciais da Missao 13, p. 105-112.",
+        "homework": "Registrar uma estrategia de conversao no caderno.",
+        "alignment": "Acerta Brasil: Missao 13, p. 105-112."
+      }
+    },
+    {
+      "id": "l4-28",
+      "type": "lesson",
+      "title": "Aula 28 - Oficina Acerta: Missao 9",
+      "skill": "EF06MA29",
+      "duration": "12/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "A Missao 9 diferencia contorno e preenchimento de figuras planas.",
+        "development": [
+          "Separar perguntas de area e perimetro.",
+          "Escolher unidade linear ou quadrada.",
+          "Comparar estrategias de resolucao."
+        ],
+        "examples": [
+          {
+            "question": "Qual a area de um retangulo 7 m por 3 m?",
+            "answer": "21 m2."
+          }
+        ],
+        "conclusion": "Area e perimetro sao medidas diferentes e devem ser nomeadas corretamente.",
+        "classwork": "Selecionar e resolver os itens essenciais da Missao 9, p. 73-80.",
+        "homework": "Refazer um item trocando area por perimetro.",
+        "alignment": "Acerta Brasil: Missao 9, p. 73-80."
+      }
+    },
+    {
+      "id": "l4-29",
+      "type": "lesson",
+      "title": "Aula 29 - Revisao especifica para a AT2",
+      "skill": "EF06MA24/25/28/29",
+      "duration": "13/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "A revisao da AT2 retoma todas as grandezas e medidas trabalhadas.",
+        "development": [
+          "Conversoes de comprimento, massa e capacidade.",
+          "Tempo e intervalos.",
+          "Area, perimetro e escala."
+        ],
+        "examples": [],
+        "conclusion": "Antes de responder, identifique a grandeza e a unidade pedida.",
+        "classwork": "Circuito de quatro estações de revisao.",
+        "homework": "Refazer os itens com erro e escrever a unidade correta.",
+        "alignment": "Revisao antes da AT2; foco nas Aulas IV.01-IV.15."
+      }
+    },
+    {
+      "id": "act4-2",
+      "type": "activity",
+      "title": "AT2 - Grandezas e Medidas",
+      "skill": "Geral",
+      "duration": "16/11 | 50 min",
+      "questions": [
+        {
+          "question": "Converta 2,5 m para centimetros.",
+          "answer": "250 cm.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Converta 3,2 kg para gramas.",
+          "answer": "3200 g.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Converta 1,75 L para mililitros.",
+          "answer": "1750 mL.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Uma atividade comeca as 8h35 e termina as 10h20. Qual a duracao?",
+          "answer": "1h45min.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule o perimetro de um retangulo de 8 cm por 3 cm.",
+          "answer": "22 cm.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule a area de um retangulo de 5 m por 4 m.",
+          "answer": "20 m2.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Em uma escala 1:100, 3 cm no desenho representam quantos metros reais?",
+          "answer": "3 m.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Um quadrado de lado 6 m tem qual area e qual perimetro?",
+          "answer": "Area 36 m2 e perimetro 24 m.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Uma receita usa 500 g de farinha e 750 mL de agua. Qual medida de massa e qual de capacidade aparecem?",
+          "answer": "500 g e 750 mL.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Explique a diferenca entre area e perimetro.",
+          "answer": "Area mede a superficie; perimetro mede o contorno.",
+          "spaceForWork": true
+        }
+      ]
+    },
+    {
+      "id": "l4-30",
+      "type": "lesson",
+      "title": "Aula 30 - Reensino: conversoes",
+      "skill": "EF06MA24",
+      "duration": "17/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Os erros de conversao mostram qual relacao precisa ser retomada.",
+        "development": [
+          "Rever tabelas de comprimento, massa e capacidade.",
+          "Usar setas e fatores de conversao.",
+          "Explicar o procedimento oralmente."
+        ],
+        "examples": [],
+        "conclusion": "Uma conversao correta conserva o valor da medida.",
+        "classwork": "Grupos de reensino conforme os erros da AT2.",
+        "homework": "Uma conversao de cada grandeza trabalhada.",
+        "alignment": "Reensino apos a AT2."
+      }
+    },
+    {
+      "id": "l4-31",
+      "type": "lesson",
+      "title": "Aula 31 - Reensino: area, perimetro e escala",
+      "skill": "EF06MA28/29",
+      "duration": "18/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Desenhos ajudam a diferenciar contorno, superficie e reducao em escala.",
+        "development": [
+          "Identificar o que a pergunta solicita.",
+          "Usar malha quadriculada.",
+          "Conferir unidade e proporcao."
+        ],
+        "examples": [],
+        "conclusion": "Desenhar antes de calcular pode tornar o problema mais claro.",
+        "classwork": "Oficina com malha quadriculada e planta baixa.",
+        "homework": "Corrigir uma solucao que confundiu area e perimetro.",
+        "alignment": "Reensino apos a AT2; Missoes 8 e 9."
+      }
+    },
+    {
+      "id": "l4-32",
+      "type": "lesson",
+      "title": "Aula 32 - Reensino: tempo, massa e capacidade",
+      "skill": "EF06MA24/25",
+      "duration": "19/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Grandezas aparecem em sequencias e rotinas do cotidiano.",
+        "development": [
+          "Organizar horarios em linha do tempo.",
+          "Converter massa e capacidade.",
+          "Usar unidades adequadas."
+        ],
+        "examples": [],
+        "conclusion": "O resultado precisa ser possivel no contexto.",
+        "classwork": "Problemas diferenciados por nivel de apoio.",
+        "homework": "Resolver um intervalo de tempo e uma conversao.",
+        "alignment": "Reensino apos a AT2."
+      }
+    },
+    {
+      "id": "l4-33",
+      "type": "lesson",
+      "title": "Aula 33 - Resolucao de problemas e correcao",
+      "skill": "EF06MA24/25/28/29",
+      "duration": "20/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "Resolver problemas envolve selecionar informacoes e justificar escolhas.",
+        "development": [
+          "Sublinhar dados e pergunta.",
+          "Planejar operacoes.",
+          "Verificar resultado e unidade."
+        ],
+        "examples": [],
+        "conclusion": "Uma resposta matematica completa inclui numero, unidade e justificativa quando necessaria.",
+        "classwork": "Problemas mistos em duplas e correcao comentada.",
+        "homework": "Reescrever uma resolucao com mais clareza.",
+        "alignment": "Consolidacao de todas as habilidades da AT2."
+      }
+    },
+    {
+      "id": "l4-34",
+      "type": "lesson",
+      "title": "Aula 34 - Revisao final: decimais",
+      "skill": "EF06MA08/11/13",
+      "duration": "23/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "A prova retoma decimais, operacoes e porcentagens simples.",
+        "development": [
+          "Representar e comparar decimais.",
+          "Operar com virgula alinhada.",
+          "Resolver problemas monetarios e de porcentagem."
+        ],
+        "examples": [],
+        "conclusion": "Estimar e conferir evitam erros mecanicos.",
+        "classwork": "Lista final curta com devolutiva imediata.",
+        "homework": "Refazer os itens em que ainda ha duvida.",
+        "alignment": "Revisao final para a prova; Missoes 10, 14 e 18."
+      }
+    },
+    {
+      "id": "l4-35",
+      "type": "lesson",
+      "title": "Aula 35 - Revisao final: grandezas e medidas",
+      "skill": "EF06MA24/25/28/29",
+      "duration": "24/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "A revisao organiza formulas, conversoes e unidades.",
+        "development": [
+          "Comprimento, massa, capacidade e tempo.",
+          "Area, perimetro e escala.",
+          "Leitura de problemas."
+        ],
+        "examples": [],
+        "conclusion": "Escolha a grandeza antes de escolher a operacao.",
+        "classwork": "Mapa de procedimentos e questoes-modelo.",
+        "homework": "Montar uma ficha com formulas e equivalencias.",
+        "alignment": "Revisao final para a prova; Missoes 8, 9 e 13."
+      }
+    },
+    {
+      "id": "l4-36",
+      "type": "lesson",
+      "title": "Aula 36 - Revisao final integrada",
+      "skill": "EF06MA08/11/13/24/25/28/29",
+      "duration": "25/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "A prova exigira a leitura de diferentes representacoes e unidades.",
+        "development": [
+          "Misturar decimais e medidas.",
+          "Interpretar tabelas simples de dados.",
+          "Justificar a unidade e a estrategia."
+        ],
+        "examples": [],
+        "conclusion": "A escolha do procedimento deve responder ao contexto.",
+        "classwork": "Rodizio de questoes com autocorrecao orientada.",
+        "homework": "Selecionar tres questoes para estudar novamente.",
+        "alignment": "Revisao final de todos os conteudos."
+      }
+    },
+    {
+      "id": "l4-37",
+      "type": "lesson",
+      "title": "Aula 37 - Simulado e correcao",
+      "skill": "Geral",
+      "duration": "26/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "O simulado permite identificar o que ainda precisa de atencao.",
+        "development": [
+          "Resolver sem ajuda inicial.",
+          "Classificar os erros por habilidade.",
+          "Corrigir usando procedimento completo."
+        ],
+        "examples": [],
+        "conclusion": "Errar na revisao ajuda a decidir o que retomar antes da prova.",
+        "classwork": "Simulado curto e correcao dialogada.",
+        "homework": "Revisar apenas os itens ainda inconsistentes.",
+        "alignment": "Preparacao para a prova."
+      }
+    },
+    {
+      "id": "l4-38",
+      "type": "lesson",
+      "title": "Aula 38 - Checklist e orientacao para a prova",
+      "skill": "Geral",
+      "duration": "27/11 | 50 min",
+      "complexity": "Média",
+      "content": {
+        "intro": "O checklist organiza conhecimentos e cuidados para a avaliacao.",
+        "development": [
+          "Ler comandos com atencao.",
+          "Registrar calculos e unidades.",
+          "Conferir resultados antes de entregar."
+        ],
+        "examples": [],
+        "conclusion": "Uma boa prova mostra o raciocinio e a resposta final.",
+        "classwork": "Checklist coletivo e resolucao de duvidas finais.",
+        "homework": "Organizar material e revisar a ficha pessoal.",
+        "alignment": "Revisao final imediatamente antes da prova."
+      }
+    },
+    {
+      "id": "exam4",
+      "type": "exam",
+      "title": "Prova do 4º Bimestre - 30/11",
+      "skill": "Geral",
+      "duration": "30/11 | 50 min",
+      "questions": [
+        {
+          "question": "Escreva 2,35 por extenso.",
+          "answer": "Dois inteiros e trinta e cinco centesimos.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Calcule 4,8 + 2,35.",
+          "answer": "7,15.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule 1,2 x 0,5.",
+          "answer": "0,6.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule 25% de 120.",
+          "answer": "30.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Converta 3,5 kg para gramas.",
+          "answer": "3500 g.",
+          "spaceForWork": false
+        },
+        {
+          "question": "Uma viagem durou de 7h45 a 10h20. Qual foi a duracao?",
+          "answer": "2h35min.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule a area de um terreno de 12 m por 8 m.",
+          "answer": "96 m2.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Calcule o perimetro do mesmo terreno.",
+          "answer": "40 m.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Em escala 1:200, uma parede mede 4 cm no desenho. Qual o tamanho real?",
+          "answer": "8 m.",
+          "spaceForWork": true
+        },
+        {
+          "question": "Explique a diferenca entre area e perimetro e escreva a unidade de cada uma.",
+          "answer": "Area mede superficie em unidade quadrada; perimetro mede contorno em unidade linear.",
+          "spaceForWork": true
+        }
+      ]
+    }
   ]
 };

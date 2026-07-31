@@ -125,8 +125,8 @@ const generateAndDownloadCSV = (grade: Grade) => {
       if (item.type === 'exam') return;
 
       itemIndex++;
-      // Estimate week number (approx 4 lessons per week)
-      const weekNum = Math.ceil(itemIndex / 4);
+      // The approved planning uses five scheduled lessons per week.
+      const weekNum = Math.ceil(itemIndex / 5);
 
       let contentSummary = '';
       if (item.content) {
@@ -391,15 +391,21 @@ const LessonView = ({ lesson }: { lesson: Item }) => {
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-green-600 text-white p-3 flex justify-between items-center">
+        <div className="bg-green-600 text-white p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <span className="font-bold flex items-center gap-2"><PenTool size={18} /> Lousa</span>
-          <span className="text-xs bg-green-700 px-2 py-1 rounded">{lesson.skill}</span>
+          <div className="flex flex-wrap items-center gap-2 text-xs sm:justify-end">
+            {lesson.duration && <span className="bg-green-700 px-2 py-1 rounded">{lesson.duration}</span>}
+            <span className="bg-green-700 px-2 py-1 rounded">{lesson.skill}</span>
+          </div>
         </div>
         <div className="p-6 bg-[#fdfbf7] font-hand text-lg text-gray-800 leading-relaxed lined-paper">
           <h2 className="text-2xl font-bold text-center text-indigo-900 mb-6 border-b-2 border-indigo-200 pb-2 uppercase">{lesson.title}</h2>
           <div className="mb-6"><span className="font-bold text-purple-700 block mb-1">Introdução:</span><p className="ml-4">{lesson.content.intro}</p></div>
           <div className="mb-6"><span className="font-bold text-blue-700 block mb-1">Desenvolvimento:</span><ul className="list-disc ml-8 space-y-2">{lesson.content.development.map((item, idx) => <li key={idx}>{item}</li>)}</ul></div>
-          <div className="mb-6 bg-yellow-50 border-2 border-yellow-200 p-4 rounded-lg"><span className="font-bold text-orange-700 block mb-2 text-center uppercase">Exemplos</span>{lesson.content.examples.map((ex, idx) => <div key={idx}><p className="font-bold">Ex {idx+1}) {ex.question}</p><p className="text-blue-600 ml-4">R: {ex.answer}</p></div>)}</div>
+          {lesson.content.classwork && <div className="mb-5 p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r"><span className="font-bold text-emerald-800 block mb-1">Em sala:</span><p>{lesson.content.classwork}</p></div>}
+          {lesson.content.homework && <div className="mb-5 p-4 bg-sky-50 border-l-4 border-sky-500 rounded-r"><span className="font-bold text-sky-800 block mb-1">Para casa:</span><p>{lesson.content.homework}</p></div>}
+          {lesson.content.examples.length > 0 && <div className="mb-6 bg-yellow-50 border-2 border-yellow-200 p-4 rounded-lg"><span className="font-bold text-orange-700 block mb-2 text-center uppercase">Exemplos</span>{lesson.content.examples.map((ex, idx) => <div key={idx}><p className="font-bold">Ex {idx+1}) {ex.question}</p><p className="text-blue-600 ml-4">R: {ex.answer}</p></div>)}</div>}
+          {lesson.content.alignment && <div className="mb-5 p-4 bg-violet-50 border-l-4 border-violet-500 rounded-r"><span className="font-bold text-violet-800 block mb-1">Alinhamento:</span><p>{lesson.content.alignment}</p></div>}
           <div className="mt-8 p-3 bg-indigo-50 border-l-4 border-indigo-500 rounded-r"><span className="font-bold text-indigo-800">Resumo: </span><span>{lesson.content.conclusion}</span></div>
         </div>
       </div>
@@ -909,9 +915,10 @@ const ItemList = ({ unit, onSelectItem }: { unit: Unit, onSelectItem: (i: Item) 
           </div>
           <div className="text-left flex-1">
             <h4 className="font-semibold text-gray-800">{item.title}</h4>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-gray-500 capitalize">{item.type === 'exam' ? 'Prova' : item.type === 'activity' ? 'Atividade' : item.type === 'practical' ? 'Prática' : 'Aula'}</span>
               {item.skill && <span className="text-xs bg-gray-100 px-1 rounded text-gray-500">Hab: {item.skill}</span>}
+              {item.duration && <span className="text-xs bg-indigo-50 px-1 rounded text-indigo-600">{item.duration}</span>}
             </div>
           </div>
           <ChevronRight size={20} className="text-gray-300" />
@@ -935,6 +942,7 @@ const App = () => {
   const item = (unit && itemId) ? unit.items.find(i => i.id === itemId) : null;
 
   React.useEffect(() => { setTab('content'); }, [unitId]);
+  React.useEffect(() => { window.scrollTo(0, 0); }, [gradeId, unitId, itemId, tab]);
 
   // --- HUB SCREEN ---
   if (activeModule === 'hub') {
